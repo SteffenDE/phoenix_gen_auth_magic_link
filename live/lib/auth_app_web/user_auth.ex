@@ -68,6 +68,17 @@ defmodule AuthAppWeb.UserAuth do
   end
 
   @doc """
+  Disconnects existing sockets for the given tokens.
+  """
+  def disconnect_sessions(tokens) do
+    Enum.each(tokens, fn %{token: token} ->
+      AuthAppWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
+    end)
+  end
+
+  defp user_session_topic(token), do: "users_sessions:" <> Base.url_encode64(token)
+
+  @doc """
   Logs the user out.
 
   It clears all session data for safety. See renew_session.
@@ -216,7 +227,7 @@ defmodule AuthAppWeb.UserAuth do
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
-    |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
+    |> put_session(:live_socket_id, user_session_topic(token))
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do

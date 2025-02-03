@@ -13,7 +13,7 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         |> live(~p"/users/settings")
 
       assert html =~ "Change Email"
-      assert html =~ "Change Password"
+      assert html =~ "Set Password"
     end
 
     test "redirects if user is not logged in", %{conn: conn} do
@@ -27,12 +27,11 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
 
   describe "update email form" do
     setup %{conn: conn} do
-      password = valid_user_password()
-      user = user_fixture(%{password: password})
-      %{conn: log_in_user(conn, user), user: user, password: password}
+      user = user_fixture()
+      %{conn: log_in_user(conn, user), user: user}
     end
 
-    test "updates the user email", %{conn: conn, password: password, user: user} do
+    test "updates the user email", %{conn: conn, user: user} do
       new_email = unique_user_email()
 
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
@@ -40,7 +39,6 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
       result =
         lv
         |> form("#email_form", %{
-          "current_password" => password,
           "user" => %{"email" => new_email}
         })
         |> render_submit()
@@ -57,7 +55,6 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         |> element("#email_form")
         |> render_change(%{
           "action" => "update_email",
-          "current_password" => "invalid",
           "user" => %{"email" => "with spaces"}
         })
 
@@ -71,32 +68,28 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
       result =
         lv
         |> form("#email_form", %{
-          "current_password" => "invalid",
           "user" => %{"email" => user.email}
         })
         |> render_submit()
 
       assert result =~ "Change Email"
       assert result =~ "did not change"
-      assert result =~ "is not valid"
     end
   end
 
   describe "update password form" do
     setup %{conn: conn} do
-      password = valid_user_password()
-      user = user_fixture(%{password: password})
-      %{conn: log_in_user(conn, user), user: user, password: password}
+      user = user_fixture()
+      %{conn: log_in_user(conn, user), user: user}
     end
 
-    test "updates the user password", %{conn: conn, user: user, password: password} do
+    test "updates the user password", %{conn: conn, user: user} do
       new_password = valid_user_password()
 
       {:ok, lv, _html} = live(conn, ~p"/users/settings")
 
       form =
         form(lv, "#password_form", %{
-          "current_password" => password,
           "user" => %{
             "email" => user.email,
             "password" => new_password,
@@ -125,14 +118,13 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         lv
         |> element("#password_form")
         |> render_change(%{
-          "current_password" => "invalid",
           "user" => %{
             "password" => "too short",
             "password_confirmation" => "does not match"
           }
         })
 
-      assert result =~ "Change Password"
+      assert result =~ "Set Password"
       assert result =~ "should be at least 12 character(s)"
       assert result =~ "does not match password"
     end
@@ -143,7 +135,6 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
       result =
         lv
         |> form("#password_form", %{
-          "current_password" => "invalid",
           "user" => %{
             "password" => "too short",
             "password_confirmation" => "does not match"
@@ -151,10 +142,9 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         })
         |> render_submit()
 
-      assert result =~ "Change Password"
+      assert result =~ "Set Password"
       assert result =~ "should be at least 12 character(s)"
       assert result =~ "does not match password"
-      assert result =~ "is not valid"
     end
   end
 

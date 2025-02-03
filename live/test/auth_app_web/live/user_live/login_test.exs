@@ -10,7 +10,7 @@ defmodule AuthAppWeb.UserLive.LoginTest do
 
       assert html =~ "Log in"
       assert html =~ "Register"
-      assert html =~ "Forgot your password?"
+      assert html =~ "log in with password"
     end
 
     test "redirects if already logged in", %{conn: conn} do
@@ -26,13 +26,14 @@ defmodule AuthAppWeb.UserLive.LoginTest do
 
   describe "user login" do
     test "redirects if user login with valid credentials", %{conn: conn} do
-      password = "123456789abcd"
-      user = user_fixture(%{password: password})
+      user = user_fixture() |> set_password()
 
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
       form =
-        form(lv, "#login_form", user: %{email: user.email, password: password, remember_me: true})
+        form(lv, "#login_form",
+          user: %{email: user.email, password: valid_user_password(), remember_me: true}
+        )
 
       conn = submit_form(form, conn)
 
@@ -53,7 +54,7 @@ defmodule AuthAppWeb.UserLive.LoginTest do
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
 
-      assert redirected_to(conn) == "/users/log-in"
+      assert redirected_to(conn) == "/users/log-in?mode=password"
     end
   end
 
@@ -70,18 +71,18 @@ defmodule AuthAppWeb.UserLive.LoginTest do
       assert login_html =~ "Register"
     end
 
-    test "redirects to forgot password page when the Forgot Password button is clicked", %{
+    test "redirects to password authentication page when the link is clicked", %{
       conn: conn
     } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      {:ok, conn} =
+      {:ok, _lv, html} =
         lv
-        |> element(~s|main a:fl-contains("Forgot your password?")|)
+        |> element(~s|main a:fl-contains("log in with password")|)
         |> render_click()
-        |> follow_redirect(conn, ~p"/users/reset-password")
+        |> follow_redirect(conn, ~p"/users/log-in?mode=password")
 
-      assert conn.resp_body =~ "Forgot your password?"
+      assert html =~ "Forgot your password?"
     end
   end
 end

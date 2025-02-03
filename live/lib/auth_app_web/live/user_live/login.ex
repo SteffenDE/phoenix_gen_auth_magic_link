@@ -18,32 +18,63 @@ defmodule AuthAppWeb.UserLive.Login do
       <.simple_form for={@form} id="login_form" action={~p"/users/log-in"} phx-update="ignore">
         <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
         <.input
+          :if={@mode == :password}
           field={@form[:password]}
           type="password"
           label="Password"
           autocomplete="current-password"
-          required
         />
-
         <:actions>
           <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-          <.link href={~p"/users/reset-password"} class="text-sm font-semibold">
-            Forgot your password?
-          </.link>
         </:actions>
-        <:actions>
+        <%!-- TODO: too many action slots necessary for my liking --%>
+        <:actions :if={@mode == :magic}>
+          <.button class="w-full" name="_action" value="magic-link">
+            Log in with email <span aria-hidden="true">→</span>
+          </.button>
+        </:actions>
+        <:actions :if={@mode == :magic}>
+          <p class="text-sm">
+            <%!-- TODO: it would be nice to prefill the email field when a user has already entered something above --%>
+            You can <.link navigate={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
+          </p>
+        </:actions>
+        <:actions :if={@mode == :password}>
           <.button class="w-full">
             Log in <span aria-hidden="true">→</span>
           </.button>
+        </:actions>
+        <:actions :if={@mode == :password}>
+          <p class="text-sm">
+            Forgot your password? (<.link
+              navigate={~p"/users/log-in?mode=email"}
+              class="underline"
+              phx-no-format
+            >log in with email</.link>)
+            to get back into your account and set a new one.
+          </p>
         </:actions>
       </.simple_form>
     </div>
     """
   end
 
-  def mount(_params, _session, socket) do
+  def mount(params, _session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
-    {:ok, assign(socket, form: form), temporary_assigns: [form: form]}
+
+    mode =
+      case params do
+        %{"mode" => "magic"} -> :magic
+        %{"mode" => "password"} -> :password
+        _ -> :magic
+      end
+
+    socket =
+      socket
+      |> assign(:form, form)
+      |> assign(:mode, mode)
+
+    {:ok, socket, temporary_assigns: [form: form]}
   end
 end

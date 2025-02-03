@@ -32,13 +32,6 @@ defmodule AuthAppWeb.UserLive.Registration do
         </.error>
 
         <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
-        <.input
-          field={@form[:password]}
-          type="password"
-          label="Password"
-          autocomplete="new-password"
-          required
-        />
 
         <:actions>
           <.button phx-disable-with="Creating account..." class="w-full">Create an account</.button>
@@ -65,7 +58,7 @@ defmodule AuthAppWeb.UserLive.Registration do
         {:ok, _} =
           Accounts.deliver_user_confirmation_instructions(
             user,
-            &url(~p"/users/confirm/#{&1}")
+            &url(~p"/users/log-in/#{&1}")
           )
 
         changeset = Accounts.change_user_registration(user)

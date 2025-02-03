@@ -8,7 +8,9 @@ defmodule AuthAppWeb.UserSessionControllerTest do
   end
 
   describe "POST /users/log-in" do
-    test "logs the user in", %{conn: conn, user: user} do
+    test "logs the user in (email + password)", %{conn: conn, user: user} do
+      user = set_password(user)
+
       conn =
         post(conn, ~p"/users/log-in", %{
           "user" => %{"email" => user.email, "password" => valid_user_password()}
@@ -26,6 +28,8 @@ defmodule AuthAppWeb.UserSessionControllerTest do
     end
 
     test "logs the user in with remember me", %{conn: conn, user: user} do
+      user = set_password(user)
+
       conn =
         post(conn, ~p"/users/log-in", %{
           "user" => %{
@@ -40,6 +44,8 @@ defmodule AuthAppWeb.UserSessionControllerTest do
     end
 
     test "logs the user in with return to", %{conn: conn, user: user} do
+      user = set_password(user)
+
       conn =
         conn
         |> init_test_session(user_return_to: "/foo/bar")
@@ -54,36 +60,6 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Welcome back!"
     end
 
-    test "login following registration", %{conn: conn, user: user} do
-      conn =
-        conn
-        |> post(~p"/users/log-in", %{
-          "_action" => "registered",
-          "user" => %{
-            "email" => user.email,
-            "password" => valid_user_password()
-          }
-        })
-
-      assert redirected_to(conn) == ~p"/"
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Account created successfully"
-    end
-
-    test "login following password update", %{conn: conn, user: user} do
-      conn =
-        conn
-        |> post(~p"/users/log-in", %{
-          "_action" => "password-updated",
-          "user" => %{
-            "email" => user.email,
-            "password" => valid_user_password()
-          }
-        })
-
-      assert redirected_to(conn) == ~p"/users/settings"
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Password updated successfully"
-    end
-
     test "redirects to login page with invalid credentials", %{conn: conn} do
       conn =
         post(conn, ~p"/users/log-in", %{
@@ -91,7 +67,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
         })
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
-      assert redirected_to(conn) == ~p"/users/log-in"
+      assert redirected_to(conn) == ~p"/users/log-in?mode=password"
     end
   end
 

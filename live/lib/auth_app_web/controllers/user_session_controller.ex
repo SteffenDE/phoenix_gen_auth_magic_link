@@ -4,20 +4,64 @@ defmodule AuthAppWeb.UserSessionController do
   alias AuthApp.Accounts
   alias AuthAppWeb.UserAuth
 
-  def create(conn, %{"_action" => "registered"} = params) do
-    create(conn, params, "Account created successfully!")
+  def create(conn, %{"_action" => "confirmed"} = params) do
+    create(conn, params, "User confirmed successfully.")
   end
 
-  def create(conn, %{"_action" => "password-updated"} = params) do
+  def create(conn, %{"_action" => "registered", "user" => user_params}) do
+    %{"email" => email} = user_params
+
     conn
-    |> put_session(:user_return_to, ~p"/users/settings")
-    |> create(params, "Password updated successfully!")
+    |> put_flash(
+      :info,
+      "An email was sent to #{email}, please access it to confirm your account."
+    )
+    |> redirect(to: ~p"/users/log-in")
+  end
+
+  def create(conn, %{"_action" => "magic-link", "user" => user_params}) do
+    %{"email" => email} = user_params
+
+    # TODO: remember me could also be encoded into the token
+    extra_params = Map.take(user_params, ["remember_me"])
+
+    if user = Accounts.get_user_by_email(email) do
+      Accounts.deliver_magic_link_instructions(
+        user,
+        &url(~p"/users/log-in/#{&1}?#{extra_params}")
+      )
+    end
+
+    info =
+      "If your email is in our system, you will receive instructions for logging in shortly."
+
+    conn
+    |> put_flash(:info, info)
+    |> redirect(to: ~p"/users/log-in")
   end
 
   def create(conn, params) do
     create(conn, params, "Welcome back!")
   end
 
+  # magic link sign in
+  defp create(conn, %{"user" => %{"token" => token} = user_params}, info) do
+    case Accounts.magic_link_sign_in(token) do
+      {:ok, user, tokens_to_disconnect} ->
+        UserAuth.disconnect_sessions(tokens_to_disconnect)
+
+        conn
+        |> put_flash(:info, info)
+        |> UserAuth.log_in_user(user, user_params)
+
+      {:error, :not_found} ->
+        conn
+        |> put_flash(:error, "The link is invalid or it has expired.")
+        |> redirect(to: ~p"/users/log-in")
+    end
+  end
+
+  # email + password sign in
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
 
@@ -30,8 +74,21 @@ defmodule AuthAppWeb.UserSessionController do
       conn
       |> put_flash(:error, "Invalid email or password")
       |> put_flash(:email, String.slice(email, 0, 160))
-      |> redirect(to: ~p"/users/log-in")
+      |> redirect(to: ~p"/users/log-in?mode=password")
     end
+  end
+
+  def update_password(conn, %{"user" => user_params} = params) do
+    user = conn.assigns.current_user
+    true = Accounts.sudo_mode?(user)
+    {:ok, _user, tokens_to_expire} = Accounts.update_user_password(user, user_params)
+
+    # disconnect all existing LiveViews with old sessions
+    UserAuth.disconnect_sessions(tokens_to_expire)
+
+    conn
+    |> put_session(:user_return_to, ~p"/users/settings")
+    |> create(params, "Password updated successfully!")
   end
 
   def delete(conn, _params) do
