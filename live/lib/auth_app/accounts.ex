@@ -76,21 +76,8 @@ defmodule AuthApp.Accounts do
   """
   def register_user(attrs) do
     %User{}
-    |> User.registration_changeset(attrs)
+    |> User.email_changeset(attrs)
     |> Repo.insert()
-  end
-
-  @doc """
-  Returns an `%Ecto.Changeset{}` for tracking user changes.
-
-  ## Examples
-
-      iex> change_user_registration(user)
-      %Ecto.Changeset{data: %User{}}
-
-  """
-  def change_user_registration(%User{} = user, attrs \\ %{}) do
-    User.registration_changeset(user, attrs, hash_password: false, validate_email: false)
   end
 
   ## Settings
@@ -129,6 +116,7 @@ defmodule AuthApp.Accounts do
 
   @doc """
   Updates the user email using the given token.
+
   If the token matches, the user email is updated and the token is deleted.
   The confirmed_at date is also updated to the current time.
   """
@@ -145,10 +133,7 @@ defmodule AuthApp.Accounts do
   end
 
   defp user_email_multi(user, email, context) do
-    changeset =
-      user
-      |> User.email_changeset(%{email: email})
-      |> User.confirm_changeset()
+    changeset = User.email_changeset(user, %{email: email})
 
     Ecto.Multi.new()
     |> Ecto.Multi.update(:user, changeset)
@@ -175,11 +160,11 @@ defmodule AuthApp.Accounts do
   @doc ~S"""
   Delivers the magic link login instructions to the given user.
   """
-  def deliver_magic_link_instructions(%User{} = user, magic_link_url_fun)
+  def deliver_login_instructions(%User{} = user, magic_link_url_fun)
       when is_function(magic_link_url_fun, 1) do
     {encoded_token, user_token} = UserToken.build_email_token(user, "login")
     Repo.insert!(user_token)
-    UserNotifier.deliver_magic_link_instructions(user, magic_link_url_fun.(encoded_token))
+    UserNotifier.deliver_login_instructions(user, magic_link_url_fun.(encoded_token))
   end
 
   @doc """
@@ -300,20 +285,15 @@ defmodule AuthApp.Accounts do
   Checks whether the user is in sudo mode.
 
   The user is in sudo mode when the last authentication was done no further
-  than 15 minutes ago.
+  than 20 minutes ago. The limit can be given as second argument in minutes.
   """
-  def sudo_mode?(%User{authenticated_at: ts}) when is_struct(ts, DateTime) do
-    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(-15, :minute))
+  def sudo_mode?(user, minutes \\ -20)
+
+  def sudo_mode?(%User{authenticated_at: ts}, minutes) when is_struct(ts, DateTime) do
+    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(minutes, :minute))
   end
 
-  @doc """
-  Creates a new magic link token for the given email.
-  """
-  def create_magic_link(email) do
-    {token, user_token} = UserToken.build_email_token(%User{email: email}, "magic_link")
-    Repo.insert!(user_token)
-    token
-  end
+  def sudo_mode?(_user, _minutes), do: false
 
   @doc """
   Deletes the signed token with the given context.
@@ -324,29 +304,6 @@ defmodule AuthApp.Accounts do
   end
 
   ## Confirmation
-
-  @doc ~S"""
-  Delivers the confirmation email instructions to the given user.
-
-  ## Examples
-
-      iex> deliver_user_confirmation_instructions(user, &url(~p"/users/confirm/#{&1}"))
-      {:ok, %{to: ..., body: ...}}
-
-      iex> deliver_user_confirmation_instructions(confirmed_user, &url(~p"/users/confirm/#{&1}"))
-      {:error, :already_confirmed}
-
-  """
-  def deliver_user_confirmation_instructions(%User{} = user, confirmation_url_fun)
-      when is_function(confirmation_url_fun, 1) do
-    if user.confirmed_at do
-      {:error, :already_confirmed}
-    else
-      {encoded_token, user_token} = UserToken.build_email_token(user, "login")
-      Repo.insert!(user_token)
-      UserNotifier.deliver_confirmation_instructions(user, confirmation_url_fun.(encoded_token))
-    end
-  end
 
   defp confirm_user_multi(user) do
     Ecto.Multi.new()

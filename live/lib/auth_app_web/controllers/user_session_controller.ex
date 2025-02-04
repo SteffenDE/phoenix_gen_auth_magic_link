@@ -8,38 +8,6 @@ defmodule AuthAppWeb.UserSessionController do
     create(conn, params, "User confirmed successfully.")
   end
 
-  def create(conn, %{"_action" => "registered", "user" => user_params}) do
-    %{"email" => email} = user_params
-
-    conn
-    |> put_flash(
-      :info,
-      "An email was sent to #{email}, please access it to confirm your account."
-    )
-    |> redirect(to: ~p"/users/log-in")
-  end
-
-  def create(conn, %{"_action" => "magic-link", "user" => user_params}) do
-    %{"email" => email} = user_params
-
-    # TODO: remember me could also be encoded into the token
-    extra_params = Map.take(user_params, ["remember_me"])
-
-    if user = Accounts.get_user_by_email(email) do
-      Accounts.deliver_magic_link_instructions(
-        user,
-        &url(~p"/users/log-in/#{&1}?#{extra_params}")
-      )
-    end
-
-    info =
-      "If your email is in our system, you will receive instructions for logging in shortly."
-
-    conn
-    |> put_flash(:info, info)
-    |> redirect(to: ~p"/users/log-in")
-  end
-
   def create(conn, params) do
     create(conn, params, "Welcome back!")
   end

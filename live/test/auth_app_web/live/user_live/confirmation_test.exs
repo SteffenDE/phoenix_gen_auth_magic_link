@@ -14,7 +14,7 @@ defmodule AuthAppWeb.UserLive.ConfirmationTest do
     test "renders confirmation page", %{conn: conn, user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
+          Accounts.deliver_login_instructions(user, url)
         end)
 
       {:ok, _lv, html} = live(conn, ~p"/users/log-in/#{token}")
@@ -24,7 +24,7 @@ defmodule AuthAppWeb.UserLive.ConfirmationTest do
     test "confirms the given token once", %{conn: conn, user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
+          Accounts.deliver_login_instructions(user, url)
         end)
 
       {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{token}")

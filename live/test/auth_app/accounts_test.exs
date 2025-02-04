@@ -87,26 +87,6 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "change_user_registration/2" do
-    test "returns a changeset" do
-      assert %Ecto.Changeset{} = changeset = Accounts.change_user_registration(%User{})
-      assert changeset.required == [:email]
-    end
-
-    test "allows fields to be set" do
-      email = unique_user_email()
-
-      changeset =
-        Accounts.change_user_registration(
-          %User{},
-          valid_user_attributes(email: email)
-        )
-
-      assert changeset.valid?
-      assert get_change(changeset, :email) == email
-    end
-  end
-
   describe "change_user_email/2" do
     test "returns a user changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_email(%User{})
@@ -193,8 +173,6 @@ defmodule AuthApp.AccountsTest do
       changed_user = Repo.get!(User, user.id)
       assert changed_user.email != user.email
       assert changed_user.email == email
-      assert changed_user.confirmed_at
-      assert changed_user.confirmed_at != user.confirmed_at
       refute Repo.get_by(UserToken, user_id: user.id)
     end
 
@@ -339,7 +317,7 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "deliver_user_confirmation_instructions/2" do
+  describe "deliver_login_instructions/2" do
     setup do
       %{user: unconfirmed_user_fixture()}
     end
@@ -347,7 +325,7 @@ defmodule AuthApp.AccountsTest do
     test "sends token through notification", %{user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
+          Accounts.deliver_login_instructions(user, url)
         end)
 
       {:ok, token} = Base.url_decode64(token, padding: false)

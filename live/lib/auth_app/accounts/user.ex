@@ -14,11 +14,9 @@ defmodule AuthApp.Accounts.User do
   end
 
   @doc """
-  A user changeset for registration.
+  A user changeset for registering or changing the email.
 
-  It is important to validate the length of the email.
-  Otherwise databases may truncate it without warnings, which
-  could lead to unpredictable or insecure behaviour.
+  It requires the email to change otherwise an error is added.
 
   ## Options
 
@@ -28,10 +26,11 @@ defmodule AuthApp.Accounts.User do
       submitting the form), this option can be set to `false`.
       Defaults to `true`.
   """
-  def registration_changeset(user, attrs, opts \\ []) do
+  def email_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [:email])
     |> validate_email(opts)
+    |> validate_email_changed()
   end
 
   defp validate_email(changeset, opts) do
@@ -44,6 +43,14 @@ defmodule AuthApp.Accounts.User do
     |> maybe_validate_unique_email(opts)
   end
 
+  defp validate_email_changed(changeset) do
+    case {get_field(changeset, :email), get_change(changeset, :email)} do
+      {nil, _} -> changeset
+      {_, nil} -> add_error(changeset, :email, "did not change")
+      _ -> changeset
+    end
+  end
+
   defp maybe_validate_unique_email(changeset, opts) do
     if Keyword.get(opts, :validate_email, true) do
       changeset
@@ -51,21 +58,6 @@ defmodule AuthApp.Accounts.User do
       |> unique_constraint(:email)
     else
       changeset
-    end
-  end
-
-  @doc """
-  A user changeset for changing the email.
-
-  It requires the email to change otherwise an error is added.
-  """
-  def email_changeset(user, attrs, opts \\ []) do
-    user
-    |> cast(attrs, [:email])
-    |> validate_email(opts)
-    |> case do
-      %{changes: %{email: _}} = changeset -> changeset
-      %{} = changeset -> add_error(changeset, :email, "did not change")
     end
   end
 

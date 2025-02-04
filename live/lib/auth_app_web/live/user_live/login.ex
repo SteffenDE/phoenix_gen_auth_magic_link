@@ -1,6 +1,8 @@
 defmodule AuthAppWeb.UserLive.Login do
   use AuthAppWeb, :live_view
 
+  alias AuthApp.Accounts
+
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">
@@ -15,7 +17,13 @@ defmodule AuthAppWeb.UserLive.Login do
         </:subtitle>
       </.header>
 
-      <.simple_form for={@form} id="login_form" action={~p"/users/log-in"} phx-update="ignore">
+      <.simple_form
+        for={@form}
+        id="login_form"
+        action={~p"/users/log-in"}
+        phx-submit="submit"
+        phx-trigger-action={@trigger_submit}
+      >
         <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
         <.input
           :if={@mode == :password}
@@ -29,14 +37,13 @@ defmodule AuthAppWeb.UserLive.Login do
         </:actions>
         <%!-- TODO: too many action slots necessary for my liking --%>
         <:actions :if={@mode == :magic}>
-          <.button class="w-full" name="_action" value="magic-link">
+          <.button class="w-full">
             Log in with email <span aria-hidden="true">→</span>
           </.button>
         </:actions>
         <:actions :if={@mode == :magic}>
           <p class="text-sm">
-            <%!-- TODO: it would be nice to prefill the email field when a user has already entered something above --%>
-            You can <.link navigate={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
+            You can <.link patch={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
           </p>
         </:actions>
         <:actions :if={@mode == :password}>
@@ -47,7 +54,7 @@ defmodule AuthAppWeb.UserLive.Login do
         <:actions :if={@mode == :password}>
           <p class="text-sm">
             Forgot your password? (<.link
-              navigate={~p"/users/log-in?mode=email"}
+              patch={~p"/users/log-in?mode=email"}
               class="underline"
               phx-no-format
             >log in with email</.link>)
@@ -59,10 +66,14 @@ defmodule AuthAppWeb.UserLive.Login do
     """
   end
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
 
+    {:ok, assign(socket, form: form, trigger_submit: false)}
+  end
+
+  def handle_params(params, _uri, socket) do
     mode =
       case params do
         %{"mode" => "magic"} -> :magic
@@ -70,11 +81,32 @@ defmodule AuthAppWeb.UserLive.Login do
         _ -> :magic
       end
 
-    socket =
-      socket
-      |> assign(:form, form)
-      |> assign(:mode, mode)
+    {:noreply, assign(socket, :mode, mode)}
+  end
 
-    {:ok, socket, temporary_assigns: [form: form]}
+  def handle_event("submit", %{"user" => %{"email" => email} = user_params}, socket) do
+    case socket.assigns.mode do
+      :magic ->
+        extra_params = Map.take(user_params, ["remember_me"])
+
+        if user = Accounts.get_user_by_email(email) do
+          Accounts.deliver_login_instructions(
+            user,
+            &url(~p"/users/log-in/#{&1}?#{extra_params}")
+          )
+        end
+
+        info =
+          "If your email is in our system, you will receive instructions for logging in shortly."
+
+        {:noreply,
+         socket
+         |> put_flash(:info, info)
+         |> push_navigate(to: ~p"/users/log-in")}
+
+      :password ->
+        # directly submit to the controller
+        {:noreply, assign(socket, :trigger_submit, true)}
+    end
   end
 end

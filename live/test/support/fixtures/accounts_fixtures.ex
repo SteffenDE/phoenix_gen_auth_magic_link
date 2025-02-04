@@ -27,7 +27,7 @@ defmodule AuthApp.AccountsFixtures do
 
     token =
       extract_user_token(fn url ->
-        AuthApp.Accounts.deliver_magic_link_instructions(user, url)
+        AuthApp.Accounts.deliver_login_instructions(user, url)
       end)
 
     {:ok, user, _tokens_to_expire} = AuthApp.Accounts.magic_link_sign_in(token)

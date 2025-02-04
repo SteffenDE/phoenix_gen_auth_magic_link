@@ -41,12 +41,12 @@ defmodule AuthAppWeb.UserLive.RegistrationTest do
 
       email = unique_user_email()
       form = form(lv, "#registration_form", user: valid_user_attributes(email: email))
-      render_submit(form)
-      conn = follow_trigger_action(form, conn)
 
-      assert redirected_to(conn) == ~p"/users/log-in"
+      {:ok, _lv, html} =
+        render_submit(form)
+        |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
+      assert html =~
                ~r/An email was sent to .*, please access it to confirm your account/
     end
 

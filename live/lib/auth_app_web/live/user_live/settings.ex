@@ -11,12 +11,6 @@ defmodule AuthAppWeb.UserLive.Settings do
     </.header>
 
     <div class="space-y-12 divide-y">
-      <%!-- TODO: find a good way to style this --%>
-      <div :if={not @sudo_mode?} class="mt-8">
-        To change your email address or password, you must re-authenticate. You can do so by
-        <%!-- TODO: when clicking the link, the user should return to this page --%>
-        <.link phx-click="magic_link" class="underline">using a magic link.</.link>
-      </div>
       <div>
         <.simple_form
           for={@email_form}
@@ -29,11 +23,10 @@ defmodule AuthAppWeb.UserLive.Settings do
             type="email"
             label="Email"
             autocomplete="username"
-            disabled={not @sudo_mode?}
             required
           />
           <:actions>
-            <.button phx-disable-with="Changing..." disabled={not @sudo_mode?}>Change Email</.button>
+            <.button phx-disable-with="Changing...">Change Email</.button>
           </:actions>
         </.simple_form>
       </div>
@@ -59,7 +52,6 @@ defmodule AuthAppWeb.UserLive.Settings do
             type="password"
             label="New password"
             autocomplete="new-password"
-            disabled={not @sudo_mode?}
             required
           />
           <.input
@@ -67,10 +59,9 @@ defmodule AuthAppWeb.UserLive.Settings do
             type="password"
             label="Confirm new password"
             autocomplete="new-password"
-            disabled={not @sudo_mode?}
           />
           <:actions>
-            <.button phx-disable-with="Changing..." disabled={not @sudo_mode?}>
+            <.button phx-disable-with="Changing...">
               {if @current_user.hashed_password != nil, do: "Change", else: "Set"} Password
             </.button>
           </:actions>
@@ -95,13 +86,11 @@ defmodule AuthAppWeb.UserLive.Settings do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    sudo_mode? = Accounts.sudo_mode?(user)
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
 
     socket =
       socket
-      |> assign(:sudo_mode?, sudo_mode?)
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
@@ -172,16 +161,5 @@ defmodule AuthAppWeb.UserLive.Settings do
       {:error, changeset} ->
         {:noreply, assign(socket, password_form: to_form(changeset))}
     end
-  end
-
-  def handle_event("magic_link", _params, socket) do
-    # TODO: we should find a way for the magic link to redirect back to the settings page
-    {:ok, _} =
-      Accounts.deliver_magic_link_instructions(
-        socket.assigns.current_user,
-        &url(~p"/users/log-in/#{&1}")
-      )
-
-    {:noreply, put_flash(socket, :info, "A magic link has been sent to your email.")}
   end
 end

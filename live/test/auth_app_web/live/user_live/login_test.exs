@@ -13,7 +13,7 @@ defmodule AuthAppWeb.UserLive.LoginTest do
       assert html =~ "log in with password"
     end
 
-    test "redirects if already logged in", %{conn: conn} do
+    test "redirects if already logged in and in sudo mode", %{conn: conn} do
       result =
         conn
         |> log_in_user(user_fixture())
@@ -76,11 +76,12 @@ defmodule AuthAppWeb.UserLive.LoginTest do
     } do
       {:ok, lv, _html} = live(conn, ~p"/users/log-in")
 
-      {:ok, _lv, html} =
+      html =
         lv
         |> element(~s|main a:fl-contains("log in with password")|)
         |> render_click()
-        |> follow_redirect(conn, ~p"/users/log-in?mode=password")
+
+      assert_patch lv
 
       assert html =~ "Forgot your password?"
     end
