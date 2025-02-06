@@ -141,6 +141,20 @@ defmodule AuthAppWeb.UserAuth do
     end
   end
 
+  @doc """
+  Used for routes that require sudo mode.
+  """
+  def require_sudo_mode(conn, _opts) do
+    if Accounts.sudo_mode?(conn.assigns.current_user, -10) do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must re-authenticate to access this page.")
+      |> redirect(to: ~p"/users/log-in")
+      |> halt()
+    end
+  end
+
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)

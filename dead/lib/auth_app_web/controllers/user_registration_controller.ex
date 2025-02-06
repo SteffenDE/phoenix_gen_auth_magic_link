@@ -3,10 +3,9 @@ defmodule AuthAppWeb.UserRegistrationController do
 
   alias AuthApp.Accounts
   alias AuthApp.Accounts.User
-  alias AuthAppWeb.UserAuth
 
   def new(conn, _params) do
-    changeset = Accounts.change_user_registration(%User{})
+    changeset = Accounts.change_user_email(%User{})
     render(conn, :new, changeset: changeset)
   end
 
@@ -14,14 +13,17 @@ defmodule AuthAppWeb.UserRegistrationController do
     case Accounts.register_user(user_params) do
       {:ok, user} ->
         {:ok, _} =
-          Accounts.deliver_user_confirmation_instructions(
+          Accounts.deliver_login_instructions(
             user,
-            &url(~p"/users/confirm/#{&1}")
+            &url(~p"/users/log-in/#{&1}")
           )
 
         conn
-        |> put_flash(:info, "User created successfully.")
-        |> UserAuth.log_in_user(user)
+        |> put_flash(
+          :info,
+          "An email was sent to #{user.email}, please access it to confirm your account."
+        )
+        |> redirect(to: ~p"/users/log-in")
 
       {:error, %Ecto.Changeset{} = changeset} ->
         render(conn, :new, changeset: changeset)

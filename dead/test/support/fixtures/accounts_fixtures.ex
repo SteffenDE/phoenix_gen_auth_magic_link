@@ -9,16 +9,35 @@ defmodule AuthApp.AccountsFixtures do
 
   def valid_user_attributes(attrs \\ %{}) do
     Enum.into(attrs, %{
-      email: unique_user_email(),
-      password: valid_user_password()
+      email: unique_user_email()
     })
   end
 
-  def user_fixture(attrs \\ %{}) do
+  def unconfirmed_user_fixture(attrs \\ %{}) do
     {:ok, user} =
       attrs
       |> valid_user_attributes()
       |> AuthApp.Accounts.register_user()
+
+    user
+  end
+
+  def user_fixture(attrs \\ %{}) do
+    user = unconfirmed_user_fixture(attrs)
+
+    token =
+      extract_user_token(fn url ->
+        AuthApp.Accounts.deliver_login_instructions(user, url)
+      end)
+
+    {:ok, user, _tokens_to_expire} = AuthApp.Accounts.magic_link_sign_in(token)
+
+    user
+  end
+
+  def set_password(user) do
+    {:ok, user, _tokens_to_expire} =
+      AuthApp.Accounts.update_user_password(user, %{password: valid_user_password()})
 
     user
   end

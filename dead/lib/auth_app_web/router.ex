@@ -52,12 +52,6 @@ defmodule AuthAppWeb.Router do
 
     get "/users/register", UserRegistrationController, :new
     post "/users/register", UserRegistrationController, :create
-    get "/users/log-in", UserSessionController, :new
-    post "/users/log-in", UserSessionController, :create
-    get "/users/reset-password", UserResetPasswordController, :new
-    post "/users/reset-password", UserResetPasswordController, :create
-    get "/users/reset-password/:token", UserResetPasswordController, :edit
-    put "/users/reset-password/:token", UserResetPasswordController, :update
   end
 
   scope "/", AuthAppWeb do
@@ -71,10 +65,10 @@ defmodule AuthAppWeb.Router do
   scope "/", AuthAppWeb do
     pipe_through [:browser]
 
+    get "/users/log-in", UserSessionController, :new
+    post "/users/log-in", UserSessionController, :create
+    get "/users/log-in/:token", UserSessionController, :confirm
+
     delete "/users/log-out", UserSessionController, :delete
-    get "/users/confirm", UserConfirmationController, :new
-    post "/users/confirm", UserConfirmationController, :create
-    get "/users/confirm/:token", UserConfirmationController, :edit
-    post "/users/confirm/:token", UserConfirmationController, :update
   end
 end

@@ -10,28 +10,55 @@
     </:subtitle>
   </.header>
 
-  <.simple_form :let={f} for={@conn.params["user"]} as={:user} action={~p"/users/log-in"}>
-    <.error :if={@error_message}>{@error_message}</.error>
-
+  <.simple_form
+    :let={f}
+    :if={@mode == :magic}
+    for={@conn.params["user"]}
+    as={:user}
+    action={~p"/users/log-in?_action=magic"}
+  >
     <.input field={f[:email]} type="email" label="Email" autocomplete="username" required />
-    <.input
-      field={f[:password]}
-      type="password"
-      label="Password"
-      autocomplete="current-password"
-      required
-    />
-
     <:actions :let={f}>
       <.input field={f[:remember_me]} type="checkbox" label="Keep me logged in" />
-      <.link href={~p"/users/reset-password"} class="text-sm font-semibold">
-        Forgot your password?
-      </.link>
     </:actions>
     <:actions>
-      <.button phx-disable-with="Logging in..." class="w-full">
+      <.button class="w-full">
+        Log in with email <span aria-hidden="true">→</span>
+      </.button>
+    </:actions>
+    <:actions>
+      <p class="text-sm">
+        You can <.link href={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
+      </p>
+    </:actions>
+  </.simple_form>
+
+  <.simple_form
+    :let={f}
+    :if={@mode == :password}
+    for={@conn.params["user"]}
+    as={:user}
+    action={~p"/users/log-in"}
+  >
+    <.error :if={@error_message}>{@error_message}</.error>
+    <.input field={f[:email]} type="email" label="Email" autocomplete="username" required />
+    <.input field={f[:password]} type="password" label="Password" autocomplete="current-password" />
+    <:actions :let={f}>
+      <.input field={f[:remember_me]} type="checkbox" label="Keep me logged in" />
+    </:actions>
+    <:actions>
+      <.button class="w-full">
         Log in <span aria-hidden="true">→</span>
       </.button>
+    </:actions>
+    <:actions>
+      <p class="text-sm">
+        Forgot your password? <.link
+          href={~p"/users/log-in?mode=email"}
+          class="underline"
+          phx-no-format
+        >Log in with email</.link> to get back into your account and set a new one.
+      </p>
     </:actions>
   </.simple_form>
 </div>
