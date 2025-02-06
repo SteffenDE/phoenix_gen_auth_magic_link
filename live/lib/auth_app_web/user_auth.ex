@@ -186,7 +186,7 @@ defmodule AuthAppWeb.UserAuth do
     socket = mount_current_user(socket, session)
     user = socket.assigns.current_user
 
-    if user && Accounts.sudo_mode?(user, -10) do
+    if user do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
     else
       {:cont, socket}
@@ -205,7 +205,7 @@ defmodule AuthAppWeb.UserAuth do
   Used for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] && Accounts.sudo_mode?(conn.assigns.current_user) do
+    if conn.assigns[:current_user] do
       conn
       |> redirect(to: signed_in_path(conn))
       |> halt()

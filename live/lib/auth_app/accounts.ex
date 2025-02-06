@@ -259,17 +259,48 @@ defmodule AuthApp.Accounts do
   end
 
   @doc """
-  Gets the user with the given signed token.
+  Gets the user with the given signed token and deletes the used token.
+
+  Because of the way the magic link sign in works, there are three cases to consider:
+
+    1. The user has not confirmed their email yet, no password is set.
+       In that case, the user gets confirmed and signed in.
+    2. The user has already confirmed their email. They are signed in.
+    3. The user has not confirmed their email yet, but a password is set.
+
+  The third case cannot happen with the default implementation, but it may happen
+  when adapting the code to a different use case, e.g. allowing to register with a password.
+
+  This situation poses a security problem: an attacker may register with an email they
+  don't actually control which can lead to a session fixation attack:
+  The attacker can wait for the actual user to register the app. When they sign in by magic link,
+  the account would get confirmed and the attacker would gain access by knowing the password
+  they set initially. To prevent this, the default implementation raises an error when trying
+  to use a magic link with a password set and unconfirmed email.
   """
   def magic_link_sign_in(token) do
     {:ok, query} = UserToken.verify_magic_link_token_query(token)
 
     case Repo.one(query) do
-      # TODO: check if we really want to mix confirmation and login
+      # prevent session fixation attacks by disallowing magic link sign
+      # for unconfirmed users with a password set
+      {%User{confirmed_at: nil, hashed_password: hash}, _token} when not is_nil(hash) ->
+        raise """
+        Magic link sign in is not allowed for unconfirmed users with a password set!
+
+        This cannot happen with the default implementation, which indicates that you
+        might have adapted the code to a different use case. Please make sure to read the phx.gen.auth
+        documentation (mix help phx.gen.auth) about the security implications when allowing passwords
+        for unconfirmed users.
+        """
+
       {%User{email: current_email, confirmed_at: nil} = user, %UserToken{sent_to: current_email}} ->
         {:ok, %{user: user, tokens_to_expire: tokens_to_expire}} =
           Repo.transaction(confirm_user_multi(user))
 
+        # for the default implementation, there should be no existing tokens to expire at this point;
+        # we still expire all tokens in case someone adapts phx.gen.auth to immediately sign in users
+        # at registration without confirming their email
         {:ok, user, tokens_to_expire}
 
       {user, token} ->

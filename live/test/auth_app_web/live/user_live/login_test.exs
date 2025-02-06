@@ -12,16 +12,6 @@ defmodule AuthAppWeb.UserLive.LoginTest do
       assert html =~ "Register"
       assert html =~ "log in with password"
     end
-
-    test "redirects if already logged in and in sudo mode", %{conn: conn} do
-      result =
-        conn
-        |> log_in_user(user_fixture())
-        |> live(~p"/users/log-in")
-        |> follow_redirect(conn, ~p"/")
-
-      assert {:ok, _conn} = result
-    end
   end
 
   describe "user login" do

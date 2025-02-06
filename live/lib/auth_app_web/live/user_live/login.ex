@@ -18,6 +18,31 @@ defmodule AuthAppWeb.UserLive.Login do
       </.header>
 
       <.simple_form
+        :if={@mode == :magic}
+        for={@form}
+        id="login_form"
+        action={~p"/users/log-in"}
+        phx-submit="submit"
+        phx-trigger-action={@trigger_submit}
+      >
+        <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
+        <:actions>
+          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
+        </:actions>
+        <:actions>
+          <.button class="w-full">
+            Log in with email <span aria-hidden="true">→</span>
+          </.button>
+        </:actions>
+        <:actions>
+          <p class="text-sm">
+            You can <.link patch={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
+          </p>
+        </:actions>
+      </.simple_form>
+
+      <.simple_form
+        :if={@mode == :password}
         for={@form}
         id="login_form"
         action={~p"/users/log-in"}
@@ -26,7 +51,6 @@ defmodule AuthAppWeb.UserLive.Login do
       >
         <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
         <.input
-          :if={@mode == :password}
           field={@form[:password]}
           type="password"
           label="Password"
@@ -35,23 +59,12 @@ defmodule AuthAppWeb.UserLive.Login do
         <:actions>
           <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
         </:actions>
-        <%!-- TODO: too many action slots necessary for my liking --%>
-        <:actions :if={@mode == :magic}>
-          <.button class="w-full">
-            Log in with email <span aria-hidden="true">→</span>
-          </.button>
-        </:actions>
-        <:actions :if={@mode == :magic}>
-          <p class="text-sm">
-            You can <.link patch={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
-          </p>
-        </:actions>
-        <:actions :if={@mode == :password}>
+        <:actions>
           <.button class="w-full">
             Log in <span aria-hidden="true">→</span>
           </.button>
         </:actions>
-        <:actions :if={@mode == :password}>
+        <:actions>
           <p class="text-sm">
             Forgot your password? (<.link
               patch={~p"/users/log-in?mode=email"}

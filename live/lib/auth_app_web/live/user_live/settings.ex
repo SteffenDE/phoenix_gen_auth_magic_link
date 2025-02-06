@@ -1,6 +1,8 @@
 defmodule AuthAppWeb.UserLive.Settings do
   use AuthAppWeb, :live_view
 
+  on_mount {AuthAppWeb.UserAuth, :ensure_sudo_mode}
+
   alias AuthApp.Accounts
 
   def render(assigns) do

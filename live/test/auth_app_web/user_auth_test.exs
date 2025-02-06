@@ -158,6 +158,7 @@ defmodule AuthAppWeb.UserAuthTest do
     test "allows users that have authenticated in the last 10 minutes", %{conn: conn, user: user} do
       user_token = Accounts.generate_user_session_token(user)
       session = conn |> put_session(:user_token, user_token) |> get_session()
+
       socket = %LiveView.Socket{
         endpoint: AuthAppWeb.Endpoint,
         assigns: %{__changed__: %{}, flash: %{}}
@@ -172,7 +173,11 @@ defmodule AuthAppWeb.UserAuthTest do
 
       socket = %LiveView.Socket{
         endpoint: AuthAppWeb.Endpoint,
-        assigns: %{__changed__: %{}, flash: %{}, current_user: %{user | authenticated_at: eleven_minutes_ago}}
+        assigns: %{
+          __changed__: %{},
+          flash: %{},
+          current_user: %{user | authenticated_at: eleven_minutes_ago}
+        }
       }
 
       assert {:halt, _updated_socket} =

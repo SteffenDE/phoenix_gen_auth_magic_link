@@ -53,25 +53,15 @@ defmodule AuthAppWeb.Router do
     live_session :redirect_if_user_is_authenticated,
       on_mount: [{AuthAppWeb.UserAuth, :redirect_if_user_is_authenticated}] do
       live "/users/register", UserLive.Registration, :new
-      live "/users/log-in", UserLive.Login, :new
-      live "/users/log-in/:token", UserLive.Confirmation, :new
-      post "/users/log-in", UserSessionController, :create
     end
   end
 
   scope "/", AuthAppWeb do
     pipe_through [:browser, :require_authenticated_user]
 
-    live_session :require_sudo_mode,
-      on_mount: [
-        {AuthAppWeb.UserAuth, :ensure_authenticated},
-        {AuthAppWeb.UserAuth, :ensure_sudo_mode}
-      ] do
-      live "/users/settings", UserLive.Settings, :edit
-    end
-
     live_session :require_authenticated_user,
       on_mount: [{AuthAppWeb.UserAuth, :ensure_authenticated}] do
+      live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
 
@@ -81,6 +71,9 @@ defmodule AuthAppWeb.Router do
   scope "/", AuthAppWeb do
     pipe_through [:browser]
 
+    live "/users/log-in", UserLive.Login, :new
+    live "/users/log-in/:token", UserLive.Confirmation, :new
+    post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete
   end
 end
