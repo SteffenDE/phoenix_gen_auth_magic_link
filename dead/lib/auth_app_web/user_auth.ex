@@ -150,6 +150,7 @@ defmodule AuthAppWeb.UserAuth do
     else
       conn
       |> put_flash(:error, "You must re-authenticate to access this page.")
+      |> maybe_store_return_to()
       |> redirect(to: ~p"/users/log-in")
       |> halt()
     end
