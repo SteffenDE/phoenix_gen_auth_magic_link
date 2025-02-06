@@ -48,15 +48,6 @@ defmodule AuthAppWeb.Router do
   ## Authentication routes
 
   scope "/", AuthAppWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
-
-    live_session :redirect_if_user_is_authenticated,
-      on_mount: [{AuthAppWeb.UserAuth, :redirect_if_user_is_authenticated}] do
-      live "/users/register", UserLive.Registration, :new
-    end
-  end
-
-  scope "/", AuthAppWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
@@ -71,6 +62,7 @@ defmodule AuthAppWeb.Router do
   scope "/", AuthAppWeb do
     pipe_through [:browser]
 
+    live "/users/register", UserLive.Registration, :new
     live "/users/log-in", UserLive.Login, :new
     live "/users/log-in/:token", UserLive.Confirmation, :new
     post "/users/log-in", UserSessionController, :create

@@ -3,6 +3,9 @@ defmodule AuthAppWeb.UserLive.Registration do
 
   alias AuthApp.Accounts
   alias AuthApp.Accounts.User
+  alias AuthAppWeb.UserAuth
+
+  on_mount {UserAuth, :mount_current_user}
 
   def render(assigns) do
     ~H"""
@@ -31,6 +34,11 @@ defmodule AuthAppWeb.UserLive.Registration do
       </.simple_form>
     </div>
     """
+  end
+
+  def mount(_params, _session, %{assigns: %{current_user: user}} = socket)
+      when not is_nil(user) do
+    {:ok, redirect(socket, to: UserAuth.signed_in_path())}
   end
 
   def mount(_params, _session, socket) do

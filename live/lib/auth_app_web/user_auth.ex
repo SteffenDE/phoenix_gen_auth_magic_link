@@ -33,7 +33,7 @@ defmodule AuthAppWeb.UserAuth do
     |> renew_session()
     |> put_token_in_session(token)
     |> maybe_write_remember_me_cookie(token, params)
-    |> redirect(to: user_return_to || signed_in_path(conn))
+    |> redirect(to: user_return_to || signed_in_path())
   end
 
   defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
@@ -126,13 +126,14 @@ defmodule AuthAppWeb.UserAuth do
 
   ## `on_mount` arguments
 
+    * `:mount_current_user` - Assigns current_user
+      to socket assigns based on user_token, or nil if
+      there's no user_token or no matching user.
+
     * `:ensure_authenticated` - Authenticates the user from the session,
       and assigns the current_user to socket assigns based
       on user_token.
       Redirects to login page if there's no logged user.
-
-    * `:redirect_if_user_is_authenticated` - Authenticates the user from the session.
-      Redirects to signed_in_path if there's a logged user.
 
   ## Examples
 
@@ -142,7 +143,7 @@ defmodule AuthAppWeb.UserAuth do
       defmodule AuthAppWeb.PageLive do
         use AuthAppWeb, :live_view
 
-        on_mount {AuthAppWeb.UserAuth, :ensure_authenticated}
+        on_mount {AuthAppWeb.UserAuth, :mount_current_user}
         ...
       end
 
@@ -152,6 +153,10 @@ defmodule AuthAppWeb.UserAuth do
         live "/profile", ProfileLive, :index
       end
   """
+  def on_mount(:mount_current_user, _params, session, socket) do
+    {:cont, mount_current_user(socket, session)}
+  end
+
   def on_mount(:ensure_authenticated, _params, session, socket) do
     socket = mount_current_user(socket, session)
 
@@ -182,36 +187,12 @@ defmodule AuthAppWeb.UserAuth do
     end
   end
 
-  def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
-    socket = mount_current_user(socket, session)
-    user = socket.assigns.current_user
-
-    if user do
-      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
-    else
-      {:cont, socket}
-    end
-  end
-
   defp mount_current_user(socket, session) do
     Phoenix.Component.assign_new(socket, :current_user, fn ->
       if user_token = session["user_token"] do
         Accounts.get_user_by_session_token(user_token)
       end
     end)
-  end
-
-  @doc """
-  Used for routes that require the user to not be authenticated.
-  """
-  def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-      |> redirect(to: signed_in_path(conn))
-      |> halt()
-    else
-      conn
-    end
   end
 
   @doc """
@@ -244,5 +225,6 @@ defmodule AuthAppWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
-  defp signed_in_path(_conn), do: ~p"/"
+  @doc "Returns the path to redirect to after log in."
+  def signed_in_path(), do: ~p"/"
 end
