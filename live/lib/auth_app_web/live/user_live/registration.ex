@@ -38,7 +38,7 @@ defmodule AuthAppWeb.UserLive.Registration do
 
   def mount(_params, _session, %{assigns: %{current_user: user}} = socket)
       when not is_nil(user) do
-    {:ok, redirect(socket, to: UserAuth.signed_in_path())}
+    {:ok, redirect(socket, to: UserAuth.signed_in_path(socket))}
   end
 
   def mount(_params, _session, socket) do

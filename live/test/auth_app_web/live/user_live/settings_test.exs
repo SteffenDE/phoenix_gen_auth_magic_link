@@ -13,7 +13,7 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         |> live(~p"/users/settings")
 
       assert html =~ "Change Email"
-      assert html =~ "Set Password"
+      assert html =~ "Save Password"
     end
 
     test "redirects if user is not logged in", %{conn: conn} do
@@ -124,7 +124,7 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
           }
         })
 
-      assert result =~ "Set Password"
+      assert result =~ "Save Password"
       assert result =~ "should be at least 12 character(s)"
       assert result =~ "does not match password"
     end
@@ -142,7 +142,7 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
         })
         |> render_submit()
 
-      assert result =~ "Set Password"
+      assert result =~ "Save Password"
       assert result =~ "should be at least 12 character(s)"
       assert result =~ "does not match password"
     end

@@ -63,8 +63,8 @@ defmodule AuthAppWeb.UserLive.Settings do
             autocomplete="new-password"
           />
           <:actions>
-            <.button phx-disable-with="Changing...">
-              {if @current_user.hashed_password != nil, do: "Change", else: "Set"} Password
+            <.button phx-disable-with="Saving...">
+              Save Password
             </.button>
           </:actions>
         </.simple_form>

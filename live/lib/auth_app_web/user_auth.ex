@@ -24,6 +24,9 @@ defmodule AuthAppWeb.UserAuth do
   so LiveView sessions are identified and automatically
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
+
+  In case the user re-authenticates for sudo mode, the existing
+  remember_me setting is kept, writing a new remember_me cookie.
   """
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
@@ -32,15 +35,22 @@ defmodule AuthAppWeb.UserAuth do
     conn
     |> renew_session()
     |> put_token_in_session(token)
-    |> maybe_write_remember_me_cookie(token, params)
-    |> redirect(to: user_return_to || signed_in_path())
+    |> maybe_write_remember_me_cookie(token, params, conn)
+    |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
+  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _old_conn) do
     put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
   end
 
-  defp maybe_write_remember_me_cookie(conn, _token, _params) do
+  defp maybe_write_remember_me_cookie(conn, token, _params, %Plug.Conn{
+         req_cookies: %{@remember_me_cookie => _}
+       }) do
+    # re-set remember_me when it was previously set
+    put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
+  end
+
+  defp maybe_write_remember_me_cookie(conn, _token, _params, _old_conn) do
     conn
   end
 
@@ -226,5 +236,10 @@ defmodule AuthAppWeb.UserAuth do
   defp maybe_store_return_to(conn), do: conn
 
   @doc "Returns the path to redirect to after log in."
-  def signed_in_path(), do: ~p"/"
+  # the user was already logged in, redirect to settings
+  def signed_in_path(%Plug.Conn{assigns: %{current_user: %Accounts.User{}}}) do
+    ~p"/users/settings"
+  end
+
+  def signed_in_path(_), do: ~p"/"
 end

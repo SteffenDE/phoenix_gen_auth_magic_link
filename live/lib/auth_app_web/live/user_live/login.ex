@@ -2,13 +2,17 @@ defmodule AuthAppWeb.UserLive.Login do
   use AuthAppWeb, :live_view
 
   alias AuthApp.Accounts
+  alias AuthAppWeb.UserAuth
+
+  on_mount {UserAuth, :mount_current_user}
 
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">
       <.header class="text-center">
-        Log in to account
-        <:subtitle>
+        <p :if={!@current_user}>Log in to account</p>
+        <p :if={@current_user}>Log in to re-authenticate</p>
+        <:subtitle :if={!@current_user}>
           Don't have an account?
           <.link navigate={~p"/users/register"} class="font-semibold text-brand hover:underline">
             Sign up
@@ -18,69 +22,68 @@ defmodule AuthAppWeb.UserLive.Login do
       </.header>
 
       <.simple_form
-        :if={@mode == :magic}
         for={@form}
         id="login_form"
         action={~p"/users/log-in"}
         phx-submit="submit"
         phx-trigger-action={@trigger_submit}
       >
-        <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
-        <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-        </:actions>
-        <:actions>
-          <.button class="w-full">
-            Log in with email <span aria-hidden="true">→</span>
-          </.button>
-        </:actions>
-        <:actions>
-          <p class="text-sm">
-            You can <.link patch={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
-          </p>
-        </:actions>
-      </.simple_form>
-
-      <.simple_form
-        :if={@mode == :password}
-        for={@form}
-        id="login_form"
-        action={~p"/users/log-in"}
-        phx-submit="submit"
-        phx-trigger-action={@trigger_submit}
-      >
-        <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
         <.input
+          disabled={!!@current_user}
+          field={@form[:email]}
+          type="email"
+          label="Email"
+          autocomplete="username"
+          required
+        />
+        <input
+          :if={!!@current_user}
+          type="hidden"
+          name={@form[:email].name}
+          value={@current_user.email}
+        />
+        <.input
+          :if={@mode == :password}
           field={@form[:password]}
           type="password"
           label="Password"
           autocomplete="current-password"
         />
-        <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-        </:actions>
-        <:actions>
-          <.button class="w-full">
-            Log in <span aria-hidden="true">→</span>
-          </.button>
-        </:actions>
-        <:actions>
-          <p class="text-sm">
-            Forgot your password? (<.link
-              patch={~p"/users/log-in?mode=email"}
-              class="underline"
-              phx-no-format
-            >log in with email</.link>)
-            to get back into your account and set a new one.
-          </p>
-        </:actions>
+        <.input
+          :if={!@current_user}
+          field={@form[:remember_me]}
+          type="checkbox"
+          label="Keep me logged in"
+        />
+        <.button class="w-full">
+          <%= if @mode == :magic do %>
+            Log in with email
+          <% else %>
+            Log in
+          <% end %>
+          <span aria-hidden="true">→</span>
+        </.button>
+        <p :if={@mode == :magic} class="text-sm">
+          You can <.link patch={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead.
+        </p>
+        <p :if={@mode == :password} class="text-sm">
+          Forgot your password? (<.link
+            patch={~p"/users/log-in?mode=email"}
+            class="underline"
+            phx-no-format
+          >log in with email</.link>)
+          to get back into your account and set a new one.
+        </p>
       </.simple_form>
     </div>
     """
   end
 
   def mount(_params, _session, socket) do
-    email = Phoenix.Flash.get(socket.assigns.flash, :email)
+    email =
+      Phoenix.Flash.get(socket.assigns.flash, :email) ||
+        get_in(socket.assigns, [:current_user, Access.key(:email)])
+
     form = to_form(%{"email" => email}, as: "user")
 
     {:ok, assign(socket, form: form, trigger_submit: false)}

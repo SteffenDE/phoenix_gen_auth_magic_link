@@ -31,15 +31,13 @@ defmodule AuthAppWeb.UserLive.Confirmation do
         phx-trigger-action={@trigger_submit}
       >
         <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
-        <:actions>
-          <.input field={@form[:remember_me]} type="checkbox" label="Keep me logged in" />
-        </:actions>
+        <input type="hidden" name={@form[:remember_me].name} value={@form[:remember_me].value} />
         <:actions>
           <.button phx-disable-with="Logging in..." class="w-full">Log in</.button>
         </:actions>
       </.simple_form>
 
-      <p class="mt-8 p-4 border text-center">
+      <p :if={!@user.confirmed_at} class="mt-8 p-4 border text-center">
         Tip: If you prefer passwords, you can enable them in the user settings.
       </p>
     </div>
