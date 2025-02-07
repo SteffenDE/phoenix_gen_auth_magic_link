@@ -27,6 +27,25 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert response =~ ~p"/users/log-out"
     end
 
+    test "logs the user in (magic link)", %{conn: conn, user: user} do
+      {token, _hashed_token} = generate_user_magic_link_token(user)
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"token" => token}
+        })
+
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/"
+
+      # Now do a logged in request and assert on the menu
+      conn = get(conn, ~p"/")
+      response = html_response(conn, 200)
+      assert response =~ user.email
+      assert response =~ ~p"/users/settings"
+      assert response =~ ~p"/users/log-out"
+    end
+
     test "logs the user in with remember me", %{conn: conn, user: user} do
       user = set_password(user)
 
@@ -68,6 +87,18 @@ defmodule AuthAppWeb.UserSessionControllerTest do
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
       assert redirected_to(conn) == ~p"/users/log-in?mode=password"
+    end
+
+    test "redirects to login page with invalid magic link", %{conn: conn} do
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{"token" => "invalid"}
+        })
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "The link is invalid or it has expired."
+
+      assert redirected_to(conn) == ~p"/users/log-in"
     end
   end
 

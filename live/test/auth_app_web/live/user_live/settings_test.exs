@@ -23,6 +23,18 @@ defmodule AuthAppWeb.UserLive.SettingsTest do
       assert path == ~p"/users/log-in"
       assert %{"error" => "You must log in to access this page."} = flash
     end
+
+    test "redirects if user is not in sudo mode", %{conn: conn} do
+      {:ok, conn} =
+        conn
+        |> log_in_user(user_fixture(),
+          token_inserted_at: DateTime.add(DateTime.utc_now(), -11, :minute)
+        )
+        |> live(~p"/users/settings")
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert conn.resp_body =~ "You must re-authenticate to access this page."
+    end
   end
 
   describe "update email form" do

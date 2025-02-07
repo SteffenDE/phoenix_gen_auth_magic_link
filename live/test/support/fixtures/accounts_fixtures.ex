@@ -4,6 +4,8 @@ defmodule AuthApp.AccountsFixtures do
   entities via the `AuthApp.Accounts` context.
   """
 
+  import Ecto.Query
+
   def unique_user_email, do: "user#{System.unique_integer()}@example.com"
   def valid_user_password, do: "hello world!"
 
@@ -46,5 +48,20 @@ defmodule AuthApp.AccountsFixtures do
     {:ok, captured_email} = fun.(&"[TOKEN]#{&1}[TOKEN]")
     [_, token | _] = String.split(captured_email.text_body, "[TOKEN]")
     token
+  end
+
+  def override_token_inserted_at(token, inserted_at) when is_binary(token) do
+    AuthApp.Repo.update_all(
+      from(t in AuthApp.Accounts.UserToken,
+        where: t.token == ^token
+      ),
+      set: [inserted_at: inserted_at]
+    )
+  end
+
+  def generate_user_magic_link_token(user) do
+    {encoded_token, user_token} = AuthApp.Accounts.UserToken.build_email_token(user, "login")
+    AuthApp.Repo.insert!(user_token)
+    {encoded_token, user_token.token}
   end
 end
