@@ -88,8 +88,8 @@ defmodule AuthAppWeb.UserLive.Settings do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    email_changeset = Accounts.change_user_email(user)
-    password_changeset = Accounts.change_user_password(user)
+    email_changeset = Accounts.change_user_email(user, %{}, validate_email: false)
+    password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
 
     socket =
       socket
@@ -106,7 +106,7 @@ defmodule AuthAppWeb.UserLive.Settings do
 
     email_form =
       socket.assigns.current_user
-      |> Accounts.change_user_email(user_params)
+      |> Accounts.change_user_email(user_params, validate_email: false)
       |> Map.put(:action, :validate)
       |> to_form()
 
@@ -118,10 +118,10 @@ defmodule AuthAppWeb.UserLive.Settings do
     user = socket.assigns.current_user
     true = Accounts.sudo_mode?(user)
 
-    case Accounts.apply_user_email(user, user_params) do
-      {:ok, applied_user} ->
+    case Accounts.change_user_email(user, user_params) do
+      %{valid?: true} = changeset ->
         Accounts.deliver_user_update_email_instructions(
-          applied_user,
+          Ecto.Changeset.apply_action!(changeset, :insert),
           user.email,
           &url(~p"/users/settings/confirm-email/#{&1}")
         )
@@ -129,8 +129,8 @@ defmodule AuthAppWeb.UserLive.Settings do
         info = "A link to confirm your email change has been sent to the new address."
         {:noreply, socket |> put_flash(:info, info)}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :email_form, to_form(Map.put(changeset, :action, :insert)))}
+      changeset ->
+        {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}
     end
   end
 
@@ -139,7 +139,7 @@ defmodule AuthAppWeb.UserLive.Settings do
 
     password_form =
       socket.assigns.current_user
-      |> Accounts.change_user_password(user_params)
+      |> Accounts.change_user_password(user_params, hash_password: false)
       |> Map.put(:action, :validate)
       |> to_form()
 
@@ -151,17 +151,12 @@ defmodule AuthAppWeb.UserLive.Settings do
     user = socket.assigns.current_user
     true = Accounts.sudo_mode?(user)
 
-    case Accounts.apply_user_password(user, user_params) do
-      {:ok, user} ->
-        password_form =
-          user
-          |> Accounts.change_user_password(user_params)
-          |> to_form()
+    case Accounts.change_user_password(user, user_params) do
+      %{valid?: true} = changeset ->
+        {:noreply, assign(socket, trigger_submit: true, password_form: to_form(changeset))}
 
-        {:noreply, assign(socket, trigger_submit: true, password_form: password_form)}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, password_form: to_form(changeset))}
+      changeset ->
+        {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
     end
   end
 end

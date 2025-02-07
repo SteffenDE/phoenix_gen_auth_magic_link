@@ -30,7 +30,7 @@ defmodule AuthApp.AccountsFixtures do
         AuthApp.Accounts.deliver_login_instructions(user, url)
       end)
 
-    {:ok, user, _tokens_to_expire} = AuthApp.Accounts.magic_link_sign_in(token)
+    {:ok, user, _tokens_to_expire} = AuthApp.Accounts.magic_link_login(token)
 
     user
   end

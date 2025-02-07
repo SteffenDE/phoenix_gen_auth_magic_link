@@ -112,6 +112,7 @@ defmodule AuthApp.Accounts.UserToken do
           from token in by_token_and_context_query(hashed_token, "login"),
             join: user in assoc(token, :user),
             where: token.inserted_at > ago(^@magic_link_validity_in_minutes, "minute"),
+            where: token.sent_to == user.email,
             select: {user, token}
 
         {:ok, query}

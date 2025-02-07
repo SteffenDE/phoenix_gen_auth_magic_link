@@ -94,48 +94,6 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "apply_user_email/3" do
-    setup do
-      %{user: user_fixture()}
-    end
-
-    test "requires email to change", %{user: user} do
-      {:error, changeset} = Accounts.apply_user_email(user, %{})
-      assert %{email: ["did not change"]} = errors_on(changeset)
-    end
-
-    test "validates email", %{user: user} do
-      {:error, changeset} =
-        Accounts.apply_user_email(user, %{email: "not valid"})
-
-      assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
-    end
-
-    test "validates maximum value for email for security", %{user: user} do
-      too_long = String.duplicate("db", 100)
-
-      {:error, changeset} =
-        Accounts.apply_user_email(user, %{email: too_long})
-
-      assert "should be at most 160 character(s)" in errors_on(changeset).email
-    end
-
-    test "validates email uniqueness", %{user: user} do
-      %{email: email} = user_fixture()
-
-      {:error, changeset} = Accounts.apply_user_email(user, %{email: email})
-
-      assert "has already been taken" in errors_on(changeset).email
-    end
-
-    test "applies the email without persisting it", %{user: user} do
-      email = unique_user_email()
-      {:ok, user} = Accounts.apply_user_email(user, %{email: email})
-      assert user.email == email
-      assert Accounts.get_user!(user.id).email != email
-    end
-  end
-
   describe "deliver_user_update_email_instructions/3" do
     setup do
       %{user: user_fixture()}
@@ -206,7 +164,7 @@ defmodule AuthApp.AccountsTest do
       changeset =
         Accounts.change_user_password(%User{}, %{
           "password" => "new valid password"
-        })
+        }, hash_password: false)
 
       assert changeset.valid?
       assert get_change(changeset, :password) == "new valid password"
