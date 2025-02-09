@@ -87,52 +87,29 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
+  describe "sudo_mode?/2" do
+    test "validates the authenticated_at time" do
+      now = DateTime.utc_now()
+
+      assert Accounts.sudo_mode?(%User{authenticated_at: DateTime.utc_now()})
+      assert Accounts.sudo_mode?(%User{authenticated_at: DateTime.add(now, -19, :minute)})
+      refute Accounts.sudo_mode?(%User{authenticated_at: DateTime.add(now, -21, :minute)})
+
+      # minute override
+      refute Accounts.sudo_mode?(
+               %User{authenticated_at: DateTime.add(now, -11, :minute)},
+               -10
+             )
+
+      # not authenticated
+      refute Accounts.sudo_mode?(%User{})
+    end
+  end
+
   describe "change_user_email/2" do
     test "returns a user changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_email(%User{})
       assert changeset.required == [:email]
-    end
-  end
-
-  describe "apply_user_email/3" do
-    setup do
-      %{user: user_fixture()}
-    end
-
-    test "requires email to change", %{user: user} do
-      {:error, changeset} = Accounts.apply_user_email(user, %{})
-      assert %{email: ["did not change"]} = errors_on(changeset)
-    end
-
-    test "validates email", %{user: user} do
-      {:error, changeset} =
-        Accounts.apply_user_email(user, %{email: "not valid"})
-
-      assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
-    end
-
-    test "validates maximum value for email for security", %{user: user} do
-      too_long = String.duplicate("db", 100)
-
-      {:error, changeset} =
-        Accounts.apply_user_email(user, %{email: too_long})
-
-      assert "should be at most 160 character(s)" in errors_on(changeset).email
-    end
-
-    test "validates email uniqueness", %{user: user} do
-      %{email: email} = user_fixture()
-
-      {:error, changeset} = Accounts.apply_user_email(user, %{email: email})
-
-      assert "has already been taken" in errors_on(changeset).email
-    end
-
-    test "applies the email without persisting it", %{user: user} do
-      email = unique_user_email()
-      {:ok, user} = Accounts.apply_user_email(user, %{email: email})
-      assert user.email == email
-      assert Accounts.get_user!(user.id).email != email
     end
   end
 
@@ -196,7 +173,7 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "change_user_password/2" do
+  describe "change_user_password/3" do
     test "returns a user changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_password(%User{})
       assert changeset.required == [:password]
@@ -204,9 +181,13 @@ defmodule AuthApp.AccountsTest do
 
     test "allows fields to be set" do
       changeset =
-        Accounts.change_user_password(%User{}, %{
-          "password" => "new valid password"
-        })
+        Accounts.change_user_password(
+          %User{},
+          %{
+            "password" => "new valid password"
+          },
+          hash_password: false
+        )
 
       assert changeset.valid?
       assert get_change(changeset, :password) == "new valid password"
@@ -305,6 +286,57 @@ defmodule AuthApp.AccountsTest do
     test "does not return user for expired token", %{token: token} do
       {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
       refute Accounts.get_user_by_session_token(token)
+    end
+  end
+
+  describe "get_user_by_magic_link_token/1" do
+    setup do
+      user = user_fixture()
+      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
+      %{user: user, token: encoded_token}
+    end
+
+    test "returns user by token", %{user: user, token: token} do
+      assert session_user = Accounts.get_user_by_magic_link_token(token)
+      assert session_user.id == user.id
+    end
+
+    test "does not return user for invalid token" do
+      refute Accounts.get_user_by_magic_link_token("oops")
+    end
+
+    test "does not return user for expired token", %{token: token} do
+      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~N[2020-01-01 00:00:00]])
+      refute Accounts.get_user_by_magic_link_token(token)
+    end
+  end
+
+  describe "magic_link_login/1" do
+    test "confirms user and expires tokens" do
+      user = unconfirmed_user_fixture()
+      refute user.confirmed_at
+      {encoded_token, hashed_token} = generate_user_magic_link_token(user)
+      assert {:ok, user, [%{token: ^hashed_token}]} = Accounts.magic_link_login(encoded_token)
+      assert user.confirmed_at
+    end
+
+    test "returns user and (deleted) token for confirmed user" do
+      user = user_fixture()
+      assert user.confirmed_at
+      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
+      assert {:ok, ^user, []} = Accounts.magic_link_login(encoded_token)
+      # one time use only
+      assert {:error, :not_found} = Accounts.magic_link_login(encoded_token)
+    end
+
+    test "raises when unconfirmed user has password set" do
+      user = unconfirmed_user_fixture()
+      {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
+      {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
+
+      assert_raise RuntimeError, ~r/Magic link sign in is not allowed/, fn ->
+        Accounts.magic_link_login(encoded_token)
+      end
     end
   end
 

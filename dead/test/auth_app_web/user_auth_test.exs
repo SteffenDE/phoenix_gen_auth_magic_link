@@ -43,6 +43,26 @@ defmodule AuthAppWeb.UserAuthTest do
       assert signed_token != get_session(conn, :user_token)
       assert max_age == 5_184_000
     end
+
+    test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
+      conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+      assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+
+      conn =
+        conn
+        |> recycle()
+        |> Map.replace!(:secret_key_base, AuthAppWeb.Endpoint.config(:secret_key_base))
+        |> fetch_cookies()
+        |> init_test_session(%{})
+
+      # the conn is already logged in and has the remeber_me cookie set,
+      # now we log in again and even without explicitly setting remember_me,
+      # the cookie should be set again
+      conn = conn |> UserAuth.log_in_user(user, %{})
+      assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
+      assert signed_token != get_session(conn, :user_token)
+      assert max_age == 5_184_000
+    end
   end
 
   describe "logout_user/1" do

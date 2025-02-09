@@ -83,7 +83,23 @@ defmodule AuthApp.Accounts do
   ## Settings
 
   @doc """
+  Checks whether the user is in sudo mode.
+
+  The user is in sudo mode when the last authentication was done no further
+  than 20 minutes ago. The limit can be given as second argument in minutes.
+  """
+  def sudo_mode?(user, minutes \\ -20)
+
+  def sudo_mode?(%User{authenticated_at: ts}, minutes) when is_struct(ts, DateTime) do
+    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(minutes, :minute))
+  end
+
+  def sudo_mode?(_user, _minutes), do: false
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for changing the user email.
+
+  See `AuthApp.Accounts.User.email_changeset/3` for a list of supported options.
 
   ## Examples
 
@@ -91,27 +107,8 @@ defmodule AuthApp.Accounts do
       %Ecto.Changeset{data: %User{}}
 
   """
-  def change_user_email(user, attrs \\ %{}) do
-    User.email_changeset(user, attrs, validate_email: false)
-  end
-
-  @doc """
-  Emulates that the email will change without actually changing
-  it in the database.
-
-  ## Examples
-
-      iex> apply_user_email(user, %{email: ...})
-      {:ok, %User{}}
-
-      iex> apply_user_email(user, %{email: "invalid"})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def apply_user_email(user, attrs) do
-    user
-    |> User.email_changeset(attrs)
-    |> Ecto.Changeset.apply_action(:update)
+  def change_user_email(user, attrs \\ %{}, opts \\ []) do
+    User.email_changeset(user, attrs, opts)
   end
 
   @doc """
@@ -140,35 +137,10 @@ defmodule AuthApp.Accounts do
     |> Ecto.Multi.delete_all(:tokens, UserToken.by_user_and_contexts_query(user, [context]))
   end
 
-  @doc ~S"""
-  Delivers the update email instructions to the given user.
-
-  ## Examples
-
-      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm-email/#{&1}"))
-      {:ok, %{to: ..., body: ...}}
-
-  """
-  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
-      when is_function(update_email_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
-
-    Repo.insert!(user_token)
-    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
-  end
-
-  @doc ~S"""
-  Delivers the magic link login instructions to the given user.
-  """
-  def deliver_login_instructions(%User{} = user, magic_link_url_fun)
-      when is_function(magic_link_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "login")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_login_instructions(user, magic_link_url_fun.(encoded_token))
-  end
-
   @doc """
   Returns an `%Ecto.Changeset{}` for changing the user password.
+
+  See `AuthApp.Accounts.User.password_changeset/3` for a list of supported options.
 
   ## Examples
 
@@ -176,53 +148,30 @@ defmodule AuthApp.Accounts do
       %Ecto.Changeset{data: %User{}}
 
   """
-  def change_user_password(user, attrs \\ %{}) do
-    User.password_changeset(user, attrs, hash_password: false)
-  end
-
-  @doc """
-  Emulates that the password will change without actually changing
-  it in the database.
-
-  ## Examples
-
-      iex> apply_user_password(user, %{password: ...})
-      {:ok, %User{}}
-
-      iex> apply_user_password(user, %{password: "invalid"})
-      {:error, %Ecto.Changeset{}}
-
-  """
-  def apply_user_password(user, attrs) do
-    user
-    |> User.password_changeset(attrs)
-    |> Ecto.Changeset.apply_action(:update)
+  def change_user_password(user, attrs \\ %{}, opts \\ []) do
+    User.password_changeset(user, attrs, opts)
   end
 
   @doc """
   Updates the user password.
 
+  Returns the updated user, as well as a list of expired tokens.
+
   ## Examples
 
       iex> update_user_password(user, %{password: ...})
-      {:ok, %User{}}
+      {:ok, %User{}, [...]}
 
       iex> update_user_password(user, %{password: "too short"})
       {:error, %Ecto.Changeset{}}
 
   """
   def update_user_password(user, attrs) do
-    changeset = User.password_changeset(user, attrs)
-
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, changeset)
-    |> Ecto.Multi.all(:tokens_to_expire, UserToken.by_user_and_contexts_query(user, :all))
-    |> Ecto.Multi.delete_all(:tokens, fn %{tokens_to_expire: tokens_to_expire} ->
-      UserToken.delete_all_query(tokens_to_expire)
-    end)
-    |> Repo.transaction()
+    user
+    |> User.password_changeset(attrs)
+    |> update_user_and_delete_all_tokens()
     |> case do
-      {:ok, %{user: user, tokens_to_expire: tokens_to_expire}} -> {:ok, user, tokens_to_expire}
+      {:ok, user, expired_tokens} -> {:ok, user, expired_tokens}
       {:error, :user, changeset, _} -> {:error, changeset}
     end
   end
@@ -278,7 +227,7 @@ defmodule AuthApp.Accounts do
   they set initially. To prevent this, the default implementation raises an error when trying
   to use a magic link with a password set and unconfirmed email.
   """
-  def magic_link_sign_in(token) do
+  def magic_link_login(token) do
     {:ok, query} = UserToken.verify_magic_link_token_query(token)
 
     case Repo.one(query) do
@@ -294,14 +243,10 @@ defmodule AuthApp.Accounts do
         for unconfirmed users.
         """
 
-      {%User{email: current_email, confirmed_at: nil} = user, %UserToken{sent_to: current_email}} ->
-        {:ok, %{user: user, tokens_to_expire: tokens_to_expire}} =
-          Repo.transaction(confirm_user_multi(user))
-
-        # for the default implementation, there should be no existing tokens to expire at this point;
-        # we still expire all tokens in case someone adapts phx.gen.auth to immediately sign in users
-        # at registration without confirming their email
-        {:ok, user, tokens_to_expire}
+      {%User{confirmed_at: nil} = user, _token} ->
+        user
+        |> User.confirm_changeset()
+        |> update_user_and_delete_all_tokens()
 
       {user, token} ->
         Repo.delete!(token)
@@ -312,19 +257,32 @@ defmodule AuthApp.Accounts do
     end
   end
 
-  @doc """
-  Checks whether the user is in sudo mode.
+  @doc ~S"""
+  Delivers the update email instructions to the given user.
 
-  The user is in sudo mode when the last authentication was done no further
-  than 20 minutes ago. The limit can be given as second argument in minutes.
+  ## Examples
+
+      iex> deliver_user_update_email_instructions(user, current_email, &url(~p"/users/settings/confirm-email/#{&1}"))
+      {:ok, %{to: ..., body: ...}}
+
   """
-  def sudo_mode?(user, minutes \\ -20)
+  def deliver_user_update_email_instructions(%User{} = user, current_email, update_email_url_fun)
+      when is_function(update_email_url_fun, 1) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "change:#{current_email}")
 
-  def sudo_mode?(%User{authenticated_at: ts}, minutes) when is_struct(ts, DateTime) do
-    DateTime.after?(ts, DateTime.utc_now() |> DateTime.add(minutes, :minute))
+    Repo.insert!(user_token)
+    UserNotifier.deliver_update_email_instructions(user, update_email_url_fun.(encoded_token))
   end
 
-  def sudo_mode?(_user, _minutes), do: false
+  @doc ~S"""
+  Delivers the magic link login instructions to the given user.
+  """
+  def deliver_login_instructions(%User{} = user, magic_link_url_fun)
+      when is_function(magic_link_url_fun, 1) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "login")
+    Repo.insert!(user_token)
+    UserNotifier.deliver_login_instructions(user, magic_link_url_fun.(encoded_token))
+  end
 
   @doc """
   Deletes the signed token with the given context.
@@ -334,15 +292,20 @@ defmodule AuthApp.Accounts do
     :ok
   end
 
-  ## Confirmation
+  ## Token helper
 
-  defp confirm_user_multi(user) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:user, User.confirm_changeset(user))
-    |> Ecto.Multi.all(:tokens_to_expire, UserToken.by_user_and_contexts_query(user, :all))
-    # Old sessions must be cleared when confirming the user to prevent session fixation attacks
-    |> Ecto.Multi.delete_all(:tokens, fn %{tokens_to_expire: tokens_to_expire} ->
-      UserToken.delete_all_query(tokens_to_expire)
-    end)
+  defp update_user_and_delete_all_tokens(changeset) do
+    %{data: %User{} = user} = changeset
+
+    with {:ok, %{user: user, tokens_to_expire: expired_tokens}} <-
+           Ecto.Multi.new()
+           |> Ecto.Multi.update(:user, changeset)
+           |> Ecto.Multi.all(:tokens_to_expire, UserToken.by_user_and_contexts_query(user, :all))
+           |> Ecto.Multi.delete_all(:tokens, fn %{tokens_to_expire: tokens_to_expire} ->
+             UserToken.delete_all_query(tokens_to_expire)
+           end)
+           |> Repo.transaction() do
+      {:ok, user, expired_tokens}
+    end
   end
 end

@@ -1,7 +1,8 @@
 <div class="mx-auto max-w-sm">
   <.header class="text-center">
-    Log in to account
-    <:subtitle>
+    <p :if={!@current_user}>Log in to account</p>
+    <p :if={@current_user}>Log in to re-authenticate</p>
+    <:subtitle :if={!@current_user}>
       Don't have an account?
       <.link navigate={~p"/users/register"} class="font-semibold text-brand hover:underline">
         Sign up
@@ -10,55 +11,53 @@
     </:subtitle>
   </.header>
 
-  <.simple_form
-    :let={f}
-    :if={@mode == :magic}
-    for={@conn.params["user"]}
-    as={:user}
-    action={~p"/users/log-in?_action=magic"}
-  >
-    <.input field={f[:email]} type="email" label="Email" autocomplete="username" required />
-    <:actions :let={f}>
-      <.input field={f[:remember_me]} type="checkbox" label="Keep me logged in" />
-    </:actions>
-    <:actions>
-      <.button class="w-full">
-        Log in with email <span aria-hidden="true">→</span>
-      </.button>
-    </:actions>
-    <:actions>
-      <p class="text-sm">
-        You can <.link href={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead
-      </p>
-    </:actions>
-  </.simple_form>
-
-  <.simple_form
-    :let={f}
-    :if={@mode == :password}
-    for={@conn.params["user"]}
-    as={:user}
-    action={~p"/users/log-in"}
-  >
+  <.simple_form for={@form} as={:user} action={~p"/users/log-in"}>
     <.error :if={@error_message}>{@error_message}</.error>
-    <.input field={f[:email]} type="email" label="Email" autocomplete="username" required />
-    <.input field={f[:password]} type="password" label="Password" autocomplete="current-password" />
-    <:actions :let={f}>
-      <.input field={f[:remember_me]} type="checkbox" label="Keep me logged in" />
-    </:actions>
-    <:actions>
-      <.button class="w-full">
-        Log in <span aria-hidden="true">→</span>
-      </.button>
-    </:actions>
-    <:actions>
-      <p class="text-sm">
-        Forgot your password? <.link
-          href={~p"/users/log-in?mode=email"}
-          class="underline"
-          phx-no-format
-        >Log in with email</.link> to get back into your account and set a new one.
-      </p>
-    </:actions>
+    <.input
+      disabled={!!@current_user}
+      field={@form[:email]}
+      type="email"
+      label="Email"
+      autocomplete="username"
+      required
+    />
+    <input
+      :if={!!@current_user}
+      type="hidden"
+      name={@form[:email].name}
+      value={@current_user.email}
+    />
+    <.input
+      :if={@mode == :password}
+      field={@form[:password]}
+      type="password"
+      label="Password"
+      autocomplete="current-password"
+    />
+    <.input
+      :if={!@current_user}
+      field={@form[:remember_me]}
+      type="checkbox"
+      label="Keep me logged in"
+    />
+    <.button class="w-full">
+      <%= if @mode == :magic do %>
+        Log in with email
+      <% else %>
+        Log in
+      <% end %>
+      <span aria-hidden="true">→</span>
+    </.button>
+    <p :if={@mode == :magic} class="text-sm">
+      You can <.link href={~p"/users/log-in?mode=password"} class="underline" phx-no-format>log in with password</.link> instead.
+    </p>
+    <p :if={@mode == :password} class="text-sm">
+      Forgot your password? (<.link
+        href={~p"/users/log-in?mode=email"}
+        class="underline"
+        phx-no-format
+      >log in with email</.link>)
+      to get back into your account and set a new one.
+    </p>
   </.simple_form>
 </div>

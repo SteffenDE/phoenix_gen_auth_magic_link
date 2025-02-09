@@ -32,15 +32,22 @@ defmodule AuthAppWeb.UserAuth do
     conn
     |> renew_session()
     |> put_token_in_session(token)
-    |> maybe_write_remember_me_cookie(token, params)
+    |> maybe_write_remember_me_cookie(token, params, conn)
     |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
+  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _old_conn) do
     put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
   end
 
-  defp maybe_write_remember_me_cookie(conn, _token, _params) do
+  defp maybe_write_remember_me_cookie(conn, token, _params, %Plug.Conn{
+         req_cookies: %{@remember_me_cookie => _}
+       }) do
+    # re-set remember_me when it was previously set
+    put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
+  end
+
+  defp maybe_write_remember_me_cookie(conn, _token, _params, _old_conn) do
     conn
   end
 
