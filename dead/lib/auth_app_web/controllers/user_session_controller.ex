@@ -43,7 +43,7 @@ defmodule AuthAppWeb.UserSessionController do
     end
   end
 
-  # email + password sign in
+  # email + password log in
   def create(conn, %{"user" => %{"email" => email, "password" => password} = user_params}) do
     if user = Accounts.get_user_by_email_and_password(email, password) do
       conn
