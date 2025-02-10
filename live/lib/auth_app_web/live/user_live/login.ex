@@ -74,6 +74,12 @@ defmodule AuthAppWeb.UserLive.Login do
           >log in with email</.link>)
           to get back into your account and set a new one.
         </p>
+        <div :if={@mode == :magic and local_mail_adapter?()} class="mt-8 p-4 border text-center">
+          <p>You are running the local mail adapter.</p>
+          <p>
+            To see sent emails, visit <.link href={~p"/dev/mailbox"} class="underline">the mailbox page</.link>.
+          </p>
+        </div>
       </.simple_form>
     </div>
     """
@@ -124,5 +130,9 @@ defmodule AuthAppWeb.UserLive.Login do
         # directly submit to the controller
         {:noreply, assign(socket, :trigger_submit, true)}
     end
+  end
+
+  defp local_mail_adapter? do
+    Application.get_env(:auth_app, AuthApp.Mailer)[:adapter] == Swoosh.Adapters.Local
   end
 end
