@@ -316,7 +316,10 @@ defmodule AuthApp.AccountsTest do
       user = unconfirmed_user_fixture()
       refute user.confirmed_at
       {encoded_token, hashed_token} = generate_user_magic_link_token(user)
-      assert {:ok, user, [%{token: ^hashed_token}]} = Accounts.login_user_by_magic_link(encoded_token)
+
+      assert {:ok, user, [%{token: ^hashed_token}]} =
+               Accounts.login_user_by_magic_link(encoded_token)
+
       assert user.confirmed_at
     end
 

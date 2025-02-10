@@ -86,7 +86,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
         })
 
       assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Invalid email or password"
-      assert redirected_to(conn) == ~p"/users/log-in?mode=password"
+      assert redirected_to(conn) == ~p"/users/log-in"
     end
 
     test "redirects to login page with invalid magic link", %{conn: conn} do
