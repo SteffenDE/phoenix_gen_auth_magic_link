@@ -14,7 +14,7 @@ defmodule AuthAppWeb.UserSessionController do
 
   # magic link login
   defp create(conn, %{"user" => %{"token" => token} = user_params}, info) do
-    case Accounts.magic_link_login(token) do
+    case Accounts.login_user_by_magic_link(token) do
       {:ok, user, tokens_to_disconnect} ->
         UserAuth.disconnect_sessions(tokens_to_disconnect)
 

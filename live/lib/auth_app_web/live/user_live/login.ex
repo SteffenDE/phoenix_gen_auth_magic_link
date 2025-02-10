@@ -77,7 +77,7 @@ defmodule AuthAppWeb.UserLive.Login do
         <div :if={@mode == :magic and local_mail_adapter?()} class="mt-8 p-4 border text-center">
           <p>You are running the local mail adapter.</p>
           <p>
-            To see sent emails, visit <.link href={~p"/dev/mailbox"} class="underline">the mailbox page</.link>.
+            To see sent emails, visit <.link href="/dev/mailbox" class="underline">the mailbox page</.link>.
           </p>
         </div>
       </.simple_form>
