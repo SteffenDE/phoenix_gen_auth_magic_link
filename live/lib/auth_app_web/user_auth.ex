@@ -31,21 +31,28 @@ defmodule AuthAppWeb.UserAuth do
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
+    remember_me = get_session(conn, :user_remember_me)
 
     conn
     |> renew_session()
     |> put_token_in_session(token)
-    |> maybe_write_remember_me_cookie(token, params)
+    |> maybe_write_remember_me_cookie(token, params, remember_me)
     |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
+  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _),
+    do: write_remember_me_cookie(conn, token)
+
+  defp maybe_write_remember_me_cookie(conn, token, _params, true),
+    do: write_remember_me_cookie(conn, token)
+
+  defp maybe_write_remember_me_cookie(conn, _token, _params, _), do: conn
+
+  defp write_remember_me_cookie(conn, token) do
     conn
     |> put_session(:user_remember_me, true)
     |> put_resp_cookie(@remember_me_cookie, token, @remember_me_options)
   end
-
-  defp maybe_write_remember_me_cookie(conn, _token, _params), do: conn
 
   # This function renews the session ID and erases the whole
   # session to avoid fixation attacks. If there is any data

@@ -101,20 +101,5 @@ defmodule AuthAppWeb.UserLive.ConfirmationTest do
 
       assert html =~ "Magic link is invalid or it has expired"
     end
-
-    test "prefills remember_me for signed in users (re-auth)", %{conn: conn, confirmed_user: user} do
-      conn =
-        log_in_user(conn, user)
-        |> init_test_session(%{user_remember_me: true})
-
-      token =
-        extract_user_token(fn url ->
-          Accounts.deliver_login_instructions(user, url)
-        end)
-
-      {:ok, _lv, html} = live(conn, ~p"/users/log-in/#{token}")
-
-      assert html =~ ~s(<input type="hidden" name="user[remember_me]" value="true"/>)
-    end
   end
 end

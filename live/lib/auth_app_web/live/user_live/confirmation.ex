@@ -17,6 +17,12 @@ defmodule AuthAppWeb.UserLive.Confirmation do
         phx-trigger-action={@trigger_submit}
       >
         <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
+        <.input
+          :if={!@current_user}
+          field={@form[:remember_me]}
+          type="checkbox"
+          label="Keep me logged in"
+        />
         <:actions>
           <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
         </:actions>
@@ -37,12 +43,6 @@ defmodule AuthAppWeb.UserLive.Confirmation do
           type="checkbox"
           label="Keep me logged in"
         />
-        <input
-          :if={!!@current_user and @form[:remember_me].value}
-          type="hidden"
-          name={@form[:remember_me].name}
-          value="true"
-        />
         <:actions>
           <.button phx-disable-with="Logging in..." class="w-full">Log in</.button>
         </:actions>
@@ -55,10 +55,9 @@ defmodule AuthAppWeb.UserLive.Confirmation do
     """
   end
 
-  def mount(%{"token" => token}, session, socket) do
+  def mount(%{"token" => token}, _session, socket) do
     if user = Accounts.get_user_by_magic_link_token(token) do
-      form =
-        to_form(%{"token" => token, "remember_me" => session["user_remember_me"]}, as: "user")
+      form = to_form(%{"token" => token}, as: "user")
 
       {:ok, assign(socket, user: user, form: form, trigger_submit: false),
        temporary_assigns: [form: nil]}
