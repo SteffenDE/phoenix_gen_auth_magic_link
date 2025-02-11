@@ -62,9 +62,13 @@ defmodule AuthAppWeb.Router do
   scope "/", AuthAppWeb do
     pipe_through [:browser]
 
-    live "/users/register", UserLive.Registration, :new
-    live "/users/log-in", UserLive.Login, :new
-    live "/users/log-in/:token", UserLive.Confirmation, :new
+    live_session :current_user,
+      on_mount: [{AuthAppWeb.UserAuth, :mount_current_user}] do
+      live "/users/register", UserLive.Registration, :new
+      live "/users/log-in", UserLive.Login, :new
+      live "/users/log-in/:token", UserLive.Confirmation, :new
+    end
+
     post "/users/log-in", UserSessionController, :create
     delete "/users/log-out", UserSessionController, :delete
   end

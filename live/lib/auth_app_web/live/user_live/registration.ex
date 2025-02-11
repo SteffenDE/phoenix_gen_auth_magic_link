@@ -5,8 +5,6 @@ defmodule AuthAppWeb.UserLive.Registration do
   alias AuthApp.Accounts.User
   alias AuthAppWeb.UserAuth
 
-  on_mount {UserAuth, :mount_current_user}
-
   def render(assigns) do
     ~H"""
     <div class="mx-auto max-w-sm">

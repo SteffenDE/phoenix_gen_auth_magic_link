@@ -2,9 +2,6 @@ defmodule AuthAppWeb.UserLive.Login do
   use AuthAppWeb, :live_view
 
   alias AuthApp.Accounts
-  alias AuthAppWeb.UserAuth
-
-  on_mount {UserAuth, :mount_current_user}
 
   def render(assigns) do
     ~H"""
@@ -50,6 +47,12 @@ defmodule AuthAppWeb.UserLive.Login do
           type="checkbox"
           label="Keep me logged in"
         />
+        <input
+          :if={!!@current_user and f[:remember_me].value}
+          type="hidden"
+          name={f[:remember_me].name}
+          value="true"
+        />
         <.button class="w-full">
           Log in <span aria-hidden="true">→</span>
         </.button>
@@ -93,12 +96,12 @@ defmodule AuthAppWeb.UserLive.Login do
     """
   end
 
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     email =
       Phoenix.Flash.get(socket.assigns.flash, :email) ||
         get_in(socket.assigns, [:current_user, Access.key(:email)])
 
-    form = to_form(%{"email" => email}, as: "user")
+    form = to_form(%{"email" => email, "remember_me" => session["user_remember_me"]}, as: "user")
 
     {:ok, assign(socket, form: form, trigger_submit: false)}
   end
