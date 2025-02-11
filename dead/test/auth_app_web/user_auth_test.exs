@@ -53,7 +53,7 @@ defmodule AuthAppWeb.UserAuthTest do
         |> recycle()
         |> Map.replace!(:secret_key_base, AuthAppWeb.Endpoint.config(:secret_key_base))
         |> fetch_cookies()
-        |> init_test_session(%{})
+        |> init_test_session(%{user_remember_me: true})
 
       # the conn is already logged in and has the remeber_me cookie set,
       # now we log in again and even without explicitly setting remember_me,

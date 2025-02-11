@@ -4,18 +4,11 @@ defmodule AuthAppWeb.UserSessionController do
   alias AuthApp.Accounts
   alias AuthAppWeb.UserAuth
 
-  def new(conn, params) do
-    mode =
-      case params do
-        %{"mode" => "magic"} -> :magic
-        %{"mode" => "password"} -> :password
-        _ -> :magic
-      end
-
+  def new(conn, _params) do
     email = get_in(conn.assigns, [:current_user, Access.key(:email)])
     form = Phoenix.Component.to_form(%{"email" => email}, as: "user")
 
-    render(conn, :new, mode: mode, form: form, error_message: nil)
+    render(conn, :new, form: form, error_message: nil)
   end
 
   # magic link login
@@ -26,7 +19,7 @@ defmodule AuthAppWeb.UserSessionController do
         _ -> "Welcome back!"
       end
 
-    case Accounts.magic_link_login(token) do
+    case Accounts.login_user_by_magic_link(token) do
       {:ok, user, _expired_tokens} ->
         conn
         |> put_flash(:info, info)
@@ -36,7 +29,6 @@ defmodule AuthAppWeb.UserSessionController do
         conn
         |> put_flash(:error, "The link is invalid or it has expired.")
         |> render(:new,
-          mode: :magic,
           form: Phoenix.Component.to_form(%{}, as: "user"),
           error_message: nil
         )
@@ -53,18 +45,16 @@ defmodule AuthAppWeb.UserSessionController do
       form = Phoenix.Component.to_form(user_params, as: "user")
 
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
-      render(conn, :new, mode: :password, form: form, error_message: "Invalid email or password")
+      render(conn, :new, form: form, error_message: "Invalid email or password")
     end
   end
 
   # magic link request
-  def create(conn, %{"user" => %{"email" => email} = user_params}) do
-    extra_params = Map.take(user_params, ["remember_me"])
-
+  def create(conn, %{"user" => %{"email" => email}}) do
     if user = Accounts.get_user_by_email(email) do
       Accounts.deliver_login_instructions(
         user,
-        &url(~p"/users/log-in/#{&1}?#{extra_params}")
+        &url(~p"/users/log-in/#{&1}")
       )
     end
 
@@ -76,9 +66,9 @@ defmodule AuthAppWeb.UserSessionController do
     |> redirect(to: ~p"/users/log-in")
   end
 
-  def confirm(conn, %{"token" => token} = params) do
+  def confirm(conn, %{"token" => token}) do
     if user = Accounts.get_user_by_magic_link_token(token) do
-      form = Phoenix.Component.to_form(params, as: "user")
+      form = Phoenix.Component.to_form(%{"token" => token}, as: "user")
 
       conn
       |> assign(:user, user)

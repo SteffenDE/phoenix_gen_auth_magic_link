@@ -14,7 +14,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       response = html_response(conn, 200)
       assert response =~ "Log in"
       assert response =~ ~p"/users/register"
-      assert response =~ "log in with password"
+      assert response =~ "Log in with email"
     end
 
     test "renders log in page with email filled in (sudo mode)", %{
@@ -29,7 +29,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
 
       assert html =~ "Log in to re-authenticate"
       refute html =~ "Register"
-      assert html =~ "log in with password"
+      assert html =~ "Log in with email"
 
       assert html =~ ~s(<input type="hidden" name="user[email]" value="#{user.email}">)
     end
@@ -39,7 +39,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       response = html_response(conn, 200)
       assert response =~ "Log in"
       assert response =~ ~p"/users/register"
-      assert response =~ "Forgot your password?"
+      assert response =~ "Log in with email"
     end
   end
 

@@ -8,6 +8,12 @@
     action={~p"/users/log-in?_action=confirmed"}
   >
     <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
+    <.input
+      :if={!@current_user}
+      field={@form[:remember_me]}
+      type="checkbox"
+      label="Keep me logged in"
+    />
     <:actions>
       <.button phx-disable-with="Confirming..." class="w-full">Confirm my account</.button>
     </:actions>
@@ -15,7 +21,12 @@
 
   <.simple_form :if={@user.confirmed_at} for={@form} id="login_form" action={~p"/users/log-in"}>
     <input type="hidden" name={@form[:token].name} value={@form[:token].value} />
-    <input type="hidden" name={@form[:remember_me].name} value={@form[:remember_me].value} />
+    <.input
+      :if={!@current_user}
+      field={@form[:remember_me]}
+      type="checkbox"
+      label="Keep me logged in"
+    />
     <:actions>
       <.button phx-disable-with="Logging in..." class="w-full">Log in</.button>
     </:actions>

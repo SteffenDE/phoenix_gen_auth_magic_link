@@ -311,12 +311,15 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "magic_link_login/1" do
+  describe "login_user_by_magic_link/1" do
     test "confirms user and expires tokens" do
       user = unconfirmed_user_fixture()
       refute user.confirmed_at
       {encoded_token, hashed_token} = generate_user_magic_link_token(user)
-      assert {:ok, user, [%{token: ^hashed_token}]} = Accounts.magic_link_login(encoded_token)
+
+      assert {:ok, user, [%{token: ^hashed_token}]} =
+               Accounts.login_user_by_magic_link(encoded_token)
+
       assert user.confirmed_at
     end
 
@@ -324,9 +327,9 @@ defmodule AuthApp.AccountsTest do
       user = user_fixture()
       assert user.confirmed_at
       {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
-      assert {:ok, ^user, []} = Accounts.magic_link_login(encoded_token)
+      assert {:ok, ^user, []} = Accounts.login_user_by_magic_link(encoded_token)
       # one time use only
-      assert {:error, :not_found} = Accounts.magic_link_login(encoded_token)
+      assert {:error, :not_found} = Accounts.login_user_by_magic_link(encoded_token)
     end
 
     test "raises when unconfirmed user has password set" do
@@ -334,8 +337,8 @@ defmodule AuthApp.AccountsTest do
       {1, nil} = Repo.update_all(User, set: [hashed_password: "hashed"])
       {encoded_token, _hashed_token} = generate_user_magic_link_token(user)
 
-      assert_raise RuntimeError, ~r/Magic link sign in is not allowed/, fn ->
-        Accounts.magic_link_login(encoded_token)
+      assert_raise RuntimeError, ~r/magic link log in is not allowed/, fn ->
+        Accounts.login_user_by_magic_link(encoded_token)
       end
     end
   end
