@@ -24,24 +24,34 @@ defmodule AuthAppWeb.UserAuth do
   so LiveView sessions are identified and automatically
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
+
+  In case the user re-authenticates for sudo mode, the existing
+  remember_me setting is kept, writing a new remember_me cookie.
   """
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
+    remember_me = get_session(conn, :user_remember_me)
 
     conn
     |> renew_session()
     |> put_token_in_session(token)
-    |> maybe_write_remember_me_cookie(token, params)
+    |> maybe_write_remember_me_cookie(token, params, remember_me)
     |> redirect(to: user_return_to || signed_in_path(conn))
   end
 
-  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}) do
-    put_resp_cookie(conn, @remember_me_cookie, token, @remember_me_options)
-  end
+  defp maybe_write_remember_me_cookie(conn, token, %{"remember_me" => "true"}, _),
+    do: write_remember_me_cookie(conn, token)
 
-  defp maybe_write_remember_me_cookie(conn, _token, _params) do
+  defp maybe_write_remember_me_cookie(conn, token, _params, true),
+    do: write_remember_me_cookie(conn, token)
+
+  defp maybe_write_remember_me_cookie(conn, _token, _params, _), do: conn
+
+  defp write_remember_me_cookie(conn, token) do
     conn
+    |> put_session(:user_remember_me, true)
+    |> put_resp_cookie(@remember_me_cookie, token, @remember_me_options)
   end
 
   # This function renews the session ID and erases the whole
@@ -124,9 +134,6 @@ defmodule AuthAppWeb.UserAuth do
       on user_token.
       Redirects to login page if there's no logged user.
 
-    * `:redirect_if_user_is_authenticated` - Authenticates the user from the session.
-      Redirects to signed_in_path if there's a logged user.
-
   ## Examples
 
   Use the `on_mount` lifecycle macro in LiveViews to mount or authenticate
@@ -164,13 +171,18 @@ defmodule AuthAppWeb.UserAuth do
     end
   end
 
-  def on_mount(:redirect_if_user_is_authenticated, _params, session, socket) do
+  def on_mount(:ensure_sudo_mode, _params, session, socket) do
     socket = mount_current_user(socket, session)
 
-    if socket.assigns.current_user do
-      {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
-    else
+    if Accounts.sudo_mode?(socket.assigns.current_user, -10) do
       {:cont, socket}
+    else
+      socket =
+        socket
+        |> Phoenix.LiveView.put_flash(:error, "You must re-authenticate to access this page.")
+        |> Phoenix.LiveView.redirect(to: ~p"/users/log-in")
+
+      {:halt, socket}
     end
   end
 
@@ -180,19 +192,6 @@ defmodule AuthAppWeb.UserAuth do
         Accounts.get_user_by_session_token(user_token)
       end
     end)
-  end
-
-  @doc """
-  Used for routes that require the user to not be authenticated.
-  """
-  def redirect_if_user_is_authenticated(conn, _opts) do
-    if conn.assigns[:current_user] do
-      conn
-      |> redirect(to: signed_in_path(conn))
-      |> halt()
-    else
-      conn
-    end
   end
 
   @doc """
@@ -216,7 +215,7 @@ defmodule AuthAppWeb.UserAuth do
   defp put_token_in_session(conn, token) do
     conn
     |> put_session(:user_token, token)
-    |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
+    |> put_session(:live_socket_id, user_session_topic(token))
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do
@@ -225,5 +224,22 @@ defmodule AuthAppWeb.UserAuth do
 
   defp maybe_store_return_to(conn), do: conn
 
-  defp signed_in_path(_conn), do: ~p"/"
+  @doc "Returns the path to redirect to after log in."
+  # the user was already logged in, redirect to settings
+  def signed_in_path(%Plug.Conn{assigns: %{current_user: %Accounts.User{}}}) do
+    ~p"/users/settings"
+  end
+
+  def signed_in_path(_), do: ~p"/"
+
+  @doc """
+  Disconnects existing sockets for the given tokens.
+  """
+  def disconnect_sessions(tokens) do
+    Enum.each(tokens, fn %{token: token} ->
+      AuthAppWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
+    end)
+  end
+
+  defp user_session_topic(token), do: "users_sessions:" <> Base.url_encode64(token)
 end

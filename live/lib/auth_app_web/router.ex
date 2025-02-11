@@ -48,20 +48,6 @@ defmodule AuthAppWeb.Router do
   ## Authentication routes
 
   scope "/", AuthAppWeb do
-    pipe_through [:browser, :redirect_if_user_is_authenticated]
-
-    live_session :redirect_if_user_is_authenticated,
-      on_mount: [{AuthAppWeb.UserAuth, :redirect_if_user_is_authenticated}] do
-      live "/users/register", UserLive.Registration, :new
-      live "/users/log-in", UserLive.Login, :new
-      live "/users/reset-password", UserLive.ForgotPassword, :new
-      live "/users/reset-password/:token", UserLive.ResetPassword, :edit
-    end
-
-    post "/users/log-in", UserSessionController, :create
-  end
-
-  scope "/", AuthAppWeb do
     pipe_through [:browser, :require_authenticated_user]
 
     live_session :require_authenticated_user,
@@ -69,17 +55,21 @@ defmodule AuthAppWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
     end
+
+    post "/users/update-password", UserSessionController, :update_password
   end
 
   scope "/", AuthAppWeb do
     pipe_through [:browser]
 
-    delete "/users/log-out", UserSessionController, :delete
-
     live_session :current_user,
       on_mount: [{AuthAppWeb.UserAuth, :mount_current_user}] do
-      live "/users/confirm/:token", UserLive.Confirmation, :edit
-      live "/users/confirm", UserLive.ConfirmationInstructions, :new
+      live "/users/register", UserLive.Registration, :new
+      live "/users/log-in", UserLive.Login, :new
+      live "/users/log-in/:token", UserLive.Confirmation, :new
     end
+
+    post "/users/log-in", UserSessionController, :create
+    delete "/users/log-out", UserSessionController, :delete
   end
 end

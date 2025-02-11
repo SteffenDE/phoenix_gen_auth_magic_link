@@ -1,6 +1,8 @@
 defmodule AuthAppWeb.UserLive.Settings do
   use AuthAppWeb, :live_view
 
+  on_mount {AuthAppWeb.UserAuth, :ensure_sudo_mode}
+
   alias AuthApp.Accounts
 
   def render(assigns) do
@@ -25,16 +27,6 @@ defmodule AuthAppWeb.UserLive.Settings do
             autocomplete="username"
             required
           />
-          <.input
-            field={@email_form[:current_password]}
-            name="current_password"
-            id="current_password_for_email"
-            type="password"
-            label="Current password"
-            value={@email_form_current_password}
-            autocomplete="current-password"
-            required
-          />
           <:actions>
             <.button phx-disable-with="Changing...">Change Email</.button>
           </:actions>
@@ -44,7 +36,7 @@ defmodule AuthAppWeb.UserLive.Settings do
         <.simple_form
           for={@password_form}
           id="password_form"
-          action={~p"/users/log-in?_action=password-updated"}
+          action={~p"/users/update-password"}
           method="post"
           phx-change="validate_password"
           phx-submit="update_password"
@@ -70,18 +62,10 @@ defmodule AuthAppWeb.UserLive.Settings do
             label="Confirm new password"
             autocomplete="new-password"
           />
-          <.input
-            field={@password_form[:current_password]}
-            name="current_password"
-            type="password"
-            label="Current password"
-            id="current_password_for_password"
-            value={@current_password}
-            autocomplete="current-password"
-            required
-          />
           <:actions>
-            <.button phx-disable-with="Changing...">Change Password</.button>
+            <.button phx-disable-with="Saving...">
+              Save Password
+            </.button>
           </:actions>
         </.simple_form>
       </div>
@@ -104,13 +88,11 @@ defmodule AuthAppWeb.UserLive.Settings do
 
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
-    email_changeset = Accounts.change_user_email(user)
-    password_changeset = Accounts.change_user_password(user)
+    email_changeset = Accounts.change_user_email(user, %{}, validate_email: false)
+    password_changeset = Accounts.change_user_password(user, %{}, hash_password: false)
 
     socket =
       socket
-      |> assign(:current_password, nil)
-      |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
       |> assign(:email_form, to_form(email_changeset))
       |> assign(:password_form, to_form(password_changeset))
@@ -120,64 +102,61 @@ defmodule AuthAppWeb.UserLive.Settings do
   end
 
   def handle_event("validate_email", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
+    %{"user" => user_params} = params
 
     email_form =
       socket.assigns.current_user
-      |> Accounts.change_user_email(user_params)
+      |> Accounts.change_user_email(user_params, validate_email: false)
       |> Map.put(:action, :validate)
       |> to_form()
 
-    {:noreply, assign(socket, email_form: email_form, email_form_current_password: password)}
+    {:noreply, assign(socket, email_form: email_form)}
   end
 
   def handle_event("update_email", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
+    %{"user" => user_params} = params
     user = socket.assigns.current_user
+    true = Accounts.sudo_mode?(user)
 
-    case Accounts.apply_user_email(user, password, user_params) do
-      {:ok, applied_user} ->
+    case Accounts.change_user_email(user, user_params) do
+      %{valid?: true} = changeset ->
         Accounts.deliver_user_update_email_instructions(
-          applied_user,
+          Ecto.Changeset.apply_action!(changeset, :insert),
           user.email,
           &url(~p"/users/settings/confirm-email/#{&1}")
         )
 
         info = "A link to confirm your email change has been sent to the new address."
-        {:noreply, socket |> put_flash(:info, info) |> assign(email_form_current_password: nil)}
+        {:noreply, socket |> put_flash(:info, info)}
 
-      {:error, changeset} ->
-        {:noreply, assign(socket, :email_form, to_form(Map.put(changeset, :action, :insert)))}
+      changeset ->
+        {:noreply, assign(socket, :email_form, to_form(changeset, action: :insert))}
     end
   end
 
   def handle_event("validate_password", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
+    %{"user" => user_params} = params
 
     password_form =
       socket.assigns.current_user
-      |> Accounts.change_user_password(user_params)
+      |> Accounts.change_user_password(user_params, hash_password: false)
       |> Map.put(:action, :validate)
       |> to_form()
 
-    {:noreply, assign(socket, password_form: password_form, current_password: password)}
+    {:noreply, assign(socket, password_form: password_form)}
   end
 
   def handle_event("update_password", params, socket) do
-    %{"current_password" => password, "user" => user_params} = params
+    %{"user" => user_params} = params
     user = socket.assigns.current_user
+    true = Accounts.sudo_mode?(user)
 
-    case Accounts.update_user_password(user, password, user_params) do
-      {:ok, user} ->
-        password_form =
-          user
-          |> Accounts.change_user_password(user_params)
-          |> to_form()
+    case Accounts.change_user_password(user, user_params) do
+      %{valid?: true} = changeset ->
+        {:noreply, assign(socket, trigger_submit: true, password_form: to_form(changeset))}
 
-        {:noreply, assign(socket, trigger_submit: true, password_form: password_form)}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, password_form: to_form(changeset))}
+      changeset ->
+        {:noreply, assign(socket, password_form: to_form(changeset, action: :insert))}
     end
   end
 end

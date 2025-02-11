@@ -14,7 +14,7 @@ defmodule AuthAppWeb.UserAuthTest do
       |> Map.replace!(:secret_key_base, AuthAppWeb.Endpoint.config(:secret_key_base))
       |> init_test_session(%{})
 
-    %{user: user_fixture(), conn: conn}
+    %{user: %{user_fixture() | authenticated_at: DateTime.utc_now()}, conn: conn}
   end
 
   describe "log_in_user/3" do
@@ -39,7 +39,33 @@ defmodule AuthAppWeb.UserAuthTest do
     test "writes a cookie if remember_me is configured", %{conn: conn, user: user} do
       conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+      assert get_session(conn, :user_remember_me) == true
 
+      assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
+      assert signed_token != get_session(conn, :user_token)
+      assert max_age == 5_184_000
+    end
+
+    test "redirects to settings when user is already logged in", %{conn: conn, user: user} do
+      conn = conn |> assign(:current_user, user) |> UserAuth.log_in_user(user)
+      assert redirected_to(conn) == "/users/settings"
+    end
+
+    test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
+      conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
+      assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+
+      conn =
+        conn
+        |> recycle()
+        |> Map.replace!(:secret_key_base, AuthAppWeb.Endpoint.config(:secret_key_base))
+        |> fetch_cookies()
+        |> init_test_session(%{user_remember_me: true})
+
+      # the conn is already logged in and has the remeber_me cookie set,
+      # now we log in again and even without explicitly setting remember_me,
+      # the cookie should be set again
+      conn = conn |> UserAuth.log_in_user(user, %{})
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
       assert max_age == 5_184_000
@@ -185,44 +211,34 @@ defmodule AuthAppWeb.UserAuthTest do
     end
   end
 
-  describe "on_mount :redirect_if_user_is_authenticated" do
-    test "redirects if there is an authenticated  user ", %{conn: conn, user: user} do
+  describe "on_mount :ensure_sudo_mode" do
+    test "allows users that have authenticated in the last 10 minutes", %{conn: conn, user: user} do
       user_token = Accounts.generate_user_session_token(user)
       session = conn |> put_session(:user_token, user_token) |> get_session()
 
-      assert {:halt, _updated_socket} =
-               UserAuth.on_mount(
-                 :redirect_if_user_is_authenticated,
-                 %{},
-                 session,
-                 %LiveView.Socket{}
-               )
-    end
-
-    test "doesn't redirect if there is no authenticated user", %{conn: conn} do
-      session = conn |> get_session()
+      socket = %LiveView.Socket{
+        endpoint: AuthAppWeb.Endpoint,
+        assigns: %{__changed__: %{}, flash: %{}}
+      }
 
       assert {:cont, _updated_socket} =
-               UserAuth.on_mount(
-                 :redirect_if_user_is_authenticated,
-                 %{},
-                 session,
-                 %LiveView.Socket{}
-               )
-    end
-  end
-
-  describe "redirect_if_user_is_authenticated/2" do
-    test "redirects if user is authenticated", %{conn: conn, user: user} do
-      conn = conn |> assign(:current_user, user) |> UserAuth.redirect_if_user_is_authenticated([])
-      assert conn.halted
-      assert redirected_to(conn) == ~p"/"
+               UserAuth.on_mount(:ensure_sudo_mode, %{}, session, socket)
     end
 
-    test "does not redirect if user is not authenticated", %{conn: conn} do
-      conn = UserAuth.redirect_if_user_is_authenticated(conn, [])
-      refute conn.halted
-      refute conn.status
+    test "redirects when authentication is too old", %{user: user} do
+      eleven_minutes_ago = DateTime.utc_now() |> DateTime.add(-11, :minute)
+
+      socket = %LiveView.Socket{
+        endpoint: AuthAppWeb.Endpoint,
+        assigns: %{
+          __changed__: %{},
+          flash: %{},
+          current_user: %{user | authenticated_at: eleven_minutes_ago}
+        }
+      }
+
+      assert {:halt, _updated_socket} =
+               UserAuth.on_mount(:ensure_sudo_mode, %{}, %{}, socket)
     end
   end
 
@@ -267,6 +283,28 @@ defmodule AuthAppWeb.UserAuthTest do
       conn = conn |> assign(:current_user, user) |> UserAuth.require_authenticated_user([])
       refute conn.halted
       refute conn.status
+    end
+  end
+
+  describe "disconnect_sessions/1" do
+    test "broadcasts disconnect messages for each token" do
+      tokens = [%{token: "token1"}, %{token: "token2"}]
+
+      for %{token: token} <- tokens do
+        AuthAppWeb.Endpoint.subscribe("users_sessions:#{Base.url_encode64(token)}")
+      end
+
+      AuthAppWeb.UserAuth.disconnect_sessions(tokens)
+
+      assert_receive %Phoenix.Socket.Broadcast{
+        event: "disconnect",
+        topic: "users_sessions:dG9rZW4x"
+      }
+
+      assert_receive %Phoenix.Socket.Broadcast{
+        event: "disconnect",
+        topic: "users_sessions:dG9rZW4y"
+      }
     end
   end
 end

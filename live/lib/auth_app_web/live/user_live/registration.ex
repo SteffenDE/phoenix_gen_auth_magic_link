@@ -3,6 +3,7 @@ defmodule AuthAppWeb.UserLive.Registration do
 
   alias AuthApp.Accounts
   alias AuthApp.Accounts.User
+  alias AuthAppWeb.UserAuth
 
   def render(assigns) do
     ~H"""
@@ -18,27 +19,12 @@ defmodule AuthAppWeb.UserLive.Registration do
         </:subtitle>
       </.header>
 
-      <.simple_form
-        for={@form}
-        id="registration_form"
-        phx-submit="save"
-        phx-change="validate"
-        phx-trigger-action={@trigger_submit}
-        action={~p"/users/log-in?_action=registered"}
-        method="post"
-      >
+      <.simple_form for={@form} id="registration_form" phx-submit="save" phx-change="validate">
         <.error :if={@check_errors}>
           Oops, something went wrong! Please check the errors below.
         </.error>
 
         <.input field={@form[:email]} type="email" label="Email" autocomplete="username" required />
-        <.input
-          field={@form[:password]}
-          type="password"
-          label="Password"
-          autocomplete="new-password"
-          required
-        />
 
         <:actions>
           <.button phx-disable-with="Creating account..." class="w-full">Create an account</.button>
@@ -48,12 +34,17 @@ defmodule AuthAppWeb.UserLive.Registration do
     """
   end
 
+  def mount(_params, _session, %{assigns: %{current_user: user}} = socket)
+      when not is_nil(user) do
+    {:ok, redirect(socket, to: UserAuth.signed_in_path(socket))}
+  end
+
   def mount(_params, _session, socket) do
-    changeset = Accounts.change_user_registration(%User{})
+    changeset = Accounts.change_user_email(%User{})
 
     socket =
       socket
-      |> assign(trigger_submit: false, check_errors: false)
+      |> assign(check_errors: false)
       |> assign_form(changeset)
 
     {:ok, socket, temporary_assigns: [form: nil]}
@@ -63,13 +54,18 @@ defmodule AuthAppWeb.UserLive.Registration do
     case Accounts.register_user(user_params) do
       {:ok, user} ->
         {:ok, _} =
-          Accounts.deliver_user_confirmation_instructions(
+          Accounts.deliver_login_instructions(
             user,
-            &url(~p"/users/confirm/#{&1}")
+            &url(~p"/users/log-in/#{&1}")
           )
 
-        changeset = Accounts.change_user_registration(user)
-        {:noreply, socket |> assign(trigger_submit: true) |> assign_form(changeset)}
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           "An email was sent to #{user.email}, please access it to confirm your account."
+         )
+         |> push_navigate(to: ~p"/users/log-in")}
 
       {:error, %Ecto.Changeset{} = changeset} ->
         {:noreply, socket |> assign(check_errors: true) |> assign_form(changeset)}
@@ -77,7 +73,7 @@ defmodule AuthAppWeb.UserLive.Registration do
   end
 
   def handle_event("validate", %{"user" => user_params}, socket) do
-    changeset = Accounts.change_user_registration(%User{}, user_params)
+    changeset = Accounts.change_user_email(%User{}, user_params)
     {:noreply, assign_form(socket, Map.put(changeset, :action, :validate))}
   end
 

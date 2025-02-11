@@ -5,85 +5,101 @@ defmodule AuthAppWeb.UserLive.ConfirmationTest do
   import AuthApp.AccountsFixtures
 
   alias AuthApp.Accounts
-  alias AuthApp.Repo
 
   setup do
-    %{user: user_fixture()}
+    %{unconfirmed_user: unconfirmed_user_fixture(), confirmed_user: user_fixture()}
   end
 
   describe "Confirm user" do
-    test "renders confirmation page", %{conn: conn} do
-      {:ok, _lv, html} = live(conn, ~p"/users/confirm/some-token")
-      assert html =~ "Confirm Account"
-    end
-
-    test "confirms the given token once", %{conn: conn, user: user} do
+    test "renders confirmation page for unconfirmed user", %{conn: conn, unconfirmed_user: user} do
       token =
         extract_user_token(fn url ->
-          Accounts.deliver_user_confirmation_instructions(user, url)
+          Accounts.deliver_login_instructions(user, url)
         end)
 
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in/#{token}")
+      assert html =~ "Confirm my account"
+    end
 
-      result =
-        lv
-        |> form("#confirmation_form")
-        |> render_submit()
-        |> follow_redirect(conn, ~p"/")
+    test "renders log in page for confirmed user", %{conn: conn, confirmed_user: user} do
+      token =
+        extract_user_token(fn url ->
+          Accounts.deliver_login_instructions(user, url)
+        end)
 
-      assert {:ok, conn} = result
+      {:ok, _lv, html} = live(conn, ~p"/users/log-in/#{token}")
+      refute html =~ "Confirm my account"
+      assert html =~ "Log in"
+    end
+
+    test "confirms the given token once", %{conn: conn, unconfirmed_user: user} do
+      token =
+        extract_user_token(fn url ->
+          Accounts.deliver_login_instructions(user, url)
+        end)
+
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{token}")
+
+      form = form(lv, "#confirmation_form", %{"user" => %{"token" => token}})
+      render_submit(form)
+
+      conn = follow_trigger_action(form, conn)
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
                "User confirmed successfully"
 
       assert Accounts.get_user!(user.id).confirmed_at
-      refute get_session(conn, :user_token)
-      assert Repo.all(Accounts.UserToken) == []
+      # we are logged in now
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/"
 
-      # when not logged in
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
+      # log out, new conn
+      conn = build_conn()
 
-      result =
-        lv
-        |> form("#confirmation_form")
-        |> render_submit()
-        |> follow_redirect(conn, ~p"/")
+      {:ok, _lv, html} =
+        live(conn, ~p"/users/log-in/#{token}")
+        |> follow_redirect(conn, ~p"/users/log-in")
 
-      assert {:ok, conn} = result
-
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
-               "User confirmation link is invalid or it has expired"
-
-      # when logged in
-      conn =
-        build_conn()
-        |> log_in_user(user)
-
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/#{token}")
-
-      result =
-        lv
-        |> form("#confirmation_form")
-        |> render_submit()
-        |> follow_redirect(conn, ~p"/")
-
-      assert {:ok, conn} = result
-      refute Phoenix.Flash.get(conn.assigns.flash, :error)
+      assert html =~ "Magic link is invalid or it has expired"
     end
 
-    test "does not confirm email with invalid token", %{conn: conn, user: user} do
-      {:ok, lv, _html} = live(conn, ~p"/users/confirm/invalid-token")
+    test "logs confirmed user in without changing confirmed_at", %{
+      conn: conn,
+      confirmed_user: user
+    } do
+      token =
+        extract_user_token(fn url ->
+          Accounts.deliver_login_instructions(user, url)
+        end)
 
-      {:ok, conn} =
-        lv
-        |> form("#confirmation_form")
-        |> render_submit()
-        |> follow_redirect(conn, ~p"/")
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in/#{token}")
 
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~
-               "User confirmation link is invalid or it has expired"
+      form = form(lv, "#login_form", %{"user" => %{"token" => token}})
+      render_submit(form)
 
-      refute Accounts.get_user!(user.id).confirmed_at
+      conn = follow_trigger_action(form, conn)
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~
+               "Welcome back!"
+
+      assert Accounts.get_user!(user.id).confirmed_at == user.confirmed_at
+
+      # log out, new conn
+      conn = build_conn()
+
+      {:ok, _lv, html} =
+        live(conn, ~p"/users/log-in/#{token}")
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert html =~ "Magic link is invalid or it has expired"
+    end
+
+    test "raises error for invalid token", %{conn: conn} do
+      {:ok, _lv, html} =
+        live(conn, ~p"/users/log-in/invalid-token")
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      assert html =~ "Magic link is invalid or it has expired"
     end
   end
 end
