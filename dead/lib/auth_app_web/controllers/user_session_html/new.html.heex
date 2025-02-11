@@ -1,26 +1,28 @@
 <div class="mx-auto max-w-sm">
   <.header class="text-center">
-    <p :if={!@current_user}>Log in</p>
-    <p :if={@current_user}>Log in to re-authenticate</p>
-    <:subtitle :if={!@current_user}>
-      Don't have an account? <.link
-        navigate={~p"/users/register"}
-        class="font-semibold text-brand hover:underline"
-        phx-no-format
-      >Sign up</.link> for an account now.
+    <p>Log in</p>
+    <:subtitle>
+      <%= if @current_user do %>
+        You need to reauthenticate to perform sensitive actions on your account.
+      <% else %>
+        Don't have an account? <.link
+          navigate={~p"/users/register"}
+          class="font-semibold text-brand hover:underline"
+          phx-no-format
+        >Sign up</.link> for an account now.
+      <% end %>
     </:subtitle>
   </.header>
 
   <.simple_form :let={f} for={@form} as={:user} id="login_form_magic" action={~p"/users/log-in"}>
     <.input
-      disabled={!!@current_user}
+      readonly={!!@current_user}
       field={f[:email]}
       type="email"
       label="Email"
       autocomplete="username"
       required
     />
-    <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
     <.button class="w-full">
       Log in with email <span aria-hidden="true">→</span>
     </.button>
@@ -41,14 +43,13 @@
   >
     <.error :if={@error_message}>{@error_message}</.error>
     <.input
-      disabled={!!@current_user}
+      readonly={!!@current_user}
       field={f[:email]}
       type="email"
       label="Email"
       autocomplete="username"
       required
     />
-    <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
     <.input field={f[:password]} type="password" label="Password" autocomplete="current-password" />
     <.input
       :if={!@current_user}

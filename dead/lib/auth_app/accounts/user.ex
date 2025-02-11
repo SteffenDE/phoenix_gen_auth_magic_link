@@ -20,42 +20,38 @@ defmodule AuthApp.Accounts.User do
 
   ## Options
 
-    * `:validate_email` - Validates the uniqueness of the email, in case
-      you don't want to validate the uniqueness of the email (like when
-      using this changeset for validations on a LiveView form before
-      submitting the form), this option can be set to `false`.
+    * `:validate_email` - Set to false if you don't want to validate the
+      uniqueness of the email, useful when displaying live validations.
       Defaults to `true`.
   """
   def email_changeset(user, attrs, opts \\ []) do
     user
     |> cast(attrs, [:email])
     |> validate_email(opts)
-    |> validate_email_changed()
   end
 
   defp validate_email(changeset, opts) do
-    changeset
-    |> validate_required([:email])
-    |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
-      message: "must have the @ sign and no spaces"
-    )
-    |> validate_length(:email, max: 160)
-    |> maybe_validate_unique_email(opts)
-  end
+    changeset =
+      changeset
+      |> validate_required([:email])
+      |> validate_format(:email, ~r/^[^@,;\s]+@[^@,;\s]+$/,
+        message: "must have the @ sign and no spaces"
+      )
+      |> validate_length(:email, max: 160)
 
-  defp validate_email_changed(changeset) do
-    case {get_field(changeset, :email), get_change(changeset, :email)} do
-      {nil, _} -> changeset
-      {_, nil} -> add_error(changeset, :email, "did not change")
-      _ -> changeset
-    end
-  end
-
-  defp maybe_validate_unique_email(changeset, opts) do
     if Keyword.get(opts, :validate_email, true) do
       changeset
       |> unsafe_validate_unique(:email, AuthApp.Repo)
       |> unique_constraint(:email)
+      |> validate_email_changed()
+    else
+      changeset
+    end
+  end
+
+  defp validate_email_changed(changeset) do
+    if get_field(changeset, :email) && get_change(changeset, :email) == nil do
+      add_error(changeset, :email, "did not change")
     else
       changeset
     end
