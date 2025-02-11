@@ -7,14 +7,17 @@ defmodule AuthAppWeb.UserLive.Login do
     ~H"""
     <div class="mx-auto max-w-sm">
       <.header class="text-center">
-        <p :if={!@current_user}>Log in</p>
-        <p :if={@current_user}>Log in to re-authenticate</p>
-        <:subtitle :if={!@current_user}>
-          Don't have an account? <.link
-            navigate={~p"/users/register"}
-            class="font-semibold text-brand hover:underline"
-            phx-no-format
-          >Sign up</.link> for an account now.
+        <p>Log in</p>
+        <:subtitle>
+          <%= if @current_user do %>
+            You need to reauthenticate to perform sensitive actions on your account.
+          <% else %>
+            Don't have an account? <.link
+              navigate={~p"/users/register"}
+              class="font-semibold text-brand hover:underline"
+              phx-no-format
+            >Sign up</.link> for an account now.
+          <% end %>
         </:subtitle>
       </.header>
 
@@ -26,14 +29,13 @@ defmodule AuthAppWeb.UserLive.Login do
         phx-submit="submit_magic"
       >
         <.input
-          disabled={!!@current_user}
+          readonly={!!@current_user}
           field={f[:email]}
           type="email"
           label="Email"
           autocomplete="username"
           required
         />
-        <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
         <.button class="w-full">
           Log in with email <span aria-hidden="true">→</span>
         </.button>
@@ -55,14 +57,13 @@ defmodule AuthAppWeb.UserLive.Login do
         phx-trigger-action={@trigger_submit}
       >
         <.input
-          disabled={!!@current_user}
+          readonly={!!@current_user}
           field={f[:email]}
           type="email"
           label="Email"
           autocomplete="username"
           required
         />
-        <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
         <.input
           field={@form[:password]}
           type="password"
@@ -101,7 +102,6 @@ defmodule AuthAppWeb.UserLive.Login do
   end
 
   def handle_event("submit_password", _params, socket) do
-    # directly submit to the controller
     {:noreply, assign(socket, :trigger_submit, true)}
   end
 
