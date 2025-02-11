@@ -235,9 +235,8 @@ defmodule AuthApp.Accounts do
         magic link log in is not allowed for unconfirmed users with a password set!
 
         This cannot happen with the default implementation, which indicates that you
-        might have adapted the code to a different use case. Please make sure to read the phx.gen.auth
-        documentation (mix help phx.gen.auth) about the security implications when allowing passwords
-        for unconfirmed users.
+        might have adapted the code to a different use case. Please make sure to read the
+        "Mixing magic link and password registration" section of `mix help phx.gen.auth`.
         """
 
       {%User{confirmed_at: nil} = user, _token} ->

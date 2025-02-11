@@ -41,7 +41,6 @@ defmodule AuthAppWeb.UserLive.Login do
         </.button>
       </.simple_form>
 
-      <%!-- TODO: too much tailwind? --%>
       <div class="flex items-center mt-8 -mb-6 text-sm">
         <hr class="flex-grow border-t-2 border-gray-300" />
         <span class="mx-2 text-gray-500">or</span>
