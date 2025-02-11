@@ -21,6 +21,34 @@ defmodule AuthAppWeb.UserLive.Login do
       <.simple_form
         :let={f}
         for={@form}
+        id="login_form_magic"
+        action={~p"/users/log-in"}
+        phx-submit="submit_magic"
+      >
+        <.input
+          disabled={!!@current_user}
+          field={f[:email]}
+          type="email"
+          label="Email"
+          autocomplete="username"
+          required
+        />
+        <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
+        <.button class="w-full">
+          Log in with email <span aria-hidden="true">→</span>
+        </.button>
+      </.simple_form>
+
+      <%!-- TODO: too much tailwind? --%>
+      <div class="flex items-center mt-8 -mb-6 text-sm">
+        <hr class="flex-grow border-t-2 border-gray-300" />
+        <span class="mx-2 text-gray-500">or</span>
+        <hr class="flex-grow border-t-2 border-gray-300" />
+      </div>
+
+      <.simple_form
+        :let={f}
+        for={@form}
         id="login_form_password"
         action={~p"/users/log-in"}
         phx-submit="submit_password"
@@ -55,34 +83,6 @@ defmodule AuthAppWeb.UserLive.Login do
         />
         <.button class="w-full">
           Log in <span aria-hidden="true">→</span>
-        </.button>
-      </.simple_form>
-
-      <%!-- TODO: too much tailwind? --%>
-      <div class="flex items-center mt-8 -mb-6 text-sm">
-        <hr class="flex-grow border-t-2 border-gray-300" />
-        <span class="mx-2 text-gray-500">or</span>
-        <hr class="flex-grow border-t-2 border-gray-300" />
-      </div>
-
-      <.simple_form
-        :let={f}
-        for={@form}
-        id="login_form_magic"
-        action={~p"/users/log-in"}
-        phx-submit="submit_magic"
-      >
-        <.input
-          disabled={!!@current_user}
-          field={f[:email]}
-          type="email"
-          label="Email"
-          autocomplete="username"
-          required
-        />
-        <input :if={!!@current_user} type="hidden" name={f[:email].name} value={@current_user.email} />
-        <.button class="w-full">
-          Log in with email <span aria-hidden="true">→</span>
         </.button>
       </.simple_form>
 
