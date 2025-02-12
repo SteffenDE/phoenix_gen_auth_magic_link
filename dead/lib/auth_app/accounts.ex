@@ -115,7 +115,6 @@ defmodule AuthApp.Accounts do
   Updates the user email using the given token.
 
   If the token matches, the user email is updated and the token is deleted.
-  The confirmed_at date is also updated to the current time.
   """
   def update_user_email(user, token) do
     context = "change:#{user.email}"

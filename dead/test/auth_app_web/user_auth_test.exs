@@ -13,14 +13,13 @@ defmodule AuthAppWeb.UserAuthTest do
       |> Map.replace!(:secret_key_base, AuthAppWeb.Endpoint.config(:secret_key_base))
       |> init_test_session(%{})
 
-    %{user: user_fixture(), conn: conn}
+    %{user: %{user_fixture() | authenticated_at: DateTime.utc_now()}, conn: conn}
   end
 
   describe "log_in_user/3" do
     test "stores the user token in the session", %{conn: conn, user: user} do
       conn = UserAuth.log_in_user(conn, user)
       assert token = get_session(conn, :user_token)
-      assert get_session(conn, :live_socket_id) == "users_sessions:#{Base.url_encode64(token)}"
       assert redirected_to(conn) == ~p"/"
       assert Accounts.get_user_by_session_token(token)
     end
@@ -38,6 +37,7 @@ defmodule AuthAppWeb.UserAuthTest do
     test "writes a cookie if remember_me is configured", %{conn: conn, user: user} do
       conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+      assert get_session(conn, :user_remember_me) == true
 
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
@@ -47,6 +47,7 @@ defmodule AuthAppWeb.UserAuthTest do
     test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
       conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+      assert get_session(conn, :user_remember_me) == true
 
       conn =
         conn
@@ -62,6 +63,7 @@ defmodule AuthAppWeb.UserAuthTest do
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
       assert max_age == 5_184_000
+      assert get_session(conn, :user_remember_me) == true
     end
   end
 
@@ -81,17 +83,6 @@ defmodule AuthAppWeb.UserAuthTest do
       assert %{max_age: 0} = conn.resp_cookies[@remember_me_cookie]
       assert redirected_to(conn) == ~p"/"
       refute Accounts.get_user_by_session_token(user_token)
-    end
-
-    test "broadcasts to the given live_socket_id", %{conn: conn} do
-      live_socket_id = "users_sessions:abcdef-token"
-      AuthAppWeb.Endpoint.subscribe(live_socket_id)
-
-      conn
-      |> put_session(:live_socket_id, live_socket_id)
-      |> UserAuth.log_out_user()
-
-      assert_receive %Phoenix.Socket.Broadcast{event: "disconnect", topic: ^live_socket_id}
     end
 
     test "works even if user is already logged out", %{conn: conn} do
@@ -123,9 +114,6 @@ defmodule AuthAppWeb.UserAuthTest do
 
       assert conn.assigns.current_user.id == user.id
       assert get_session(conn, :user_token) == user_token
-
-      assert get_session(conn, :live_socket_id) ==
-               "users_sessions:#{Base.url_encode64(user_token)}"
     end
 
     test "does not authenticate if data is missing", %{conn: conn, user: user} do
@@ -133,6 +121,34 @@ defmodule AuthAppWeb.UserAuthTest do
       conn = UserAuth.fetch_current_user(conn, [])
       refute get_session(conn, :user_token)
       refute conn.assigns.current_user
+    end
+  end
+
+  describe "require_sudo_mode/2" do
+    test "allows users that have authenticated in the last 10 minutes", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> fetch_flash()
+        |> assign(:current_user, user)
+        |> UserAuth.require_sudo_mode([])
+
+      refute conn.halted
+      refute conn.status
+    end
+
+    test "redirects when authentication is too old", %{conn: conn, user: user} do
+      eleven_minutes_ago = DateTime.utc_now() |> DateTime.add(-11, :minute)
+
+      conn =
+        conn
+        |> fetch_flash()
+        |> assign(:current_user, %{user | authenticated_at: eleven_minutes_ago})
+        |> UserAuth.require_sudo_mode([])
+
+      assert redirected_to(conn) == ~p"/users/log-in"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "You must re-authenticate to access this page."
     end
   end
 

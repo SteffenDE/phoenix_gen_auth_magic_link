@@ -15,7 +15,7 @@ defmodule AuthAppWeb.UserSessionController do
   def create(conn, %{"user" => %{"token" => token} = user_params} = params) do
     info =
       case params do
-        %{"_action" => "confirmed"} -> "Account confirmed successfully!"
+        %{"_action" => "confirmed"} -> "User confirmed successfully."
         _ -> "Welcome back!"
       end
 
@@ -35,7 +35,7 @@ defmodule AuthAppWeb.UserSessionController do
     end
   end
 
-  # email + password log in
+  # email + password login
   def create(conn, %{"user" => %{"email" => email, "password" => password} = user_params}) do
     if user = Accounts.get_user_by_email_and_password(email, password) do
       conn

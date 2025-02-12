@@ -106,7 +106,7 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "change_user_email/2" do
+  describe "change_user_email/3" do
     test "returns a user changeset" do
       assert %Ecto.Changeset{} = changeset = Accounts.change_user_email(%User{})
       assert changeset.required == [:email]
@@ -195,7 +195,7 @@ defmodule AuthApp.AccountsTest do
     end
   end
 
-  describe "update_user_password/3" do
+  describe "update_user_password/2" do
     setup do
       %{user: user_fixture()}
     end
@@ -223,13 +223,12 @@ defmodule AuthApp.AccountsTest do
     end
 
     test "updates the password", %{user: user} do
-      {:ok, user, tokens_to_expire} =
+      {:ok, user, expired_tokens} =
         Accounts.update_user_password(user, %{
           password: "new valid password"
         })
 
-      assert tokens_to_expire == []
-
+      assert expired_tokens == []
       assert is_nil(user.password)
       assert Accounts.get_user_by_email_and_password(user.email, "new valid password")
     end

@@ -24,6 +24,9 @@ defmodule AuthAppWeb.UserAuth do
   so LiveView sessions are identified and automatically
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
+
+  In case the user re-authenticates for sudo mode,
+  the existing remember_me setting is kept, writing a new remember_me cookie.
   """
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
@@ -118,6 +121,21 @@ defmodule AuthAppWeb.UserAuth do
   end
 
   @doc """
+  Used for routes that require sudo mode.
+  """
+  def require_sudo_mode(conn, _opts) do
+    if Accounts.sudo_mode?(conn.assigns.current_user, -10) do
+      conn
+    else
+      conn
+      |> put_flash(:error, "You must re-authenticate to access this page.")
+      |> maybe_store_return_to()
+      |> redirect(to: ~p"/users/log-in")
+      |> halt()
+    end
+  end
+
+  @doc """
   Used for routes that require the user to not be authenticated.
   """
   def redirect_if_user_is_authenticated(conn, _opts) do
@@ -148,25 +166,8 @@ defmodule AuthAppWeb.UserAuth do
     end
   end
 
-  @doc """
-  Used for routes that require sudo mode.
-  """
-  def require_sudo_mode(conn, _opts) do
-    if Accounts.sudo_mode?(conn.assigns.current_user, -10) do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must re-authenticate to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: ~p"/users/log-in")
-      |> halt()
-    end
-  end
-
   defp put_token_in_session(conn, token) do
-    conn
-    |> put_session(:user_token, token)
-    |> put_session(:live_socket_id, "users_sessions:#{Base.url_encode64(token)}")
+    put_session(conn, :user_token, token)
   end
 
   defp maybe_store_return_to(%{method: "GET"} = conn) do

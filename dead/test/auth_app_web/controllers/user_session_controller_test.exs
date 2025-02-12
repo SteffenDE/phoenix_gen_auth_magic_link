@@ -5,11 +5,11 @@ defmodule AuthAppWeb.UserSessionControllerTest do
   alias AuthApp.Accounts
 
   setup do
-    %{unconfirmed_user: unconfirmed_user_fixture(), confirmed_user: user_fixture()}
+    %{unconfirmed_user: unconfirmed_user_fixture(), user: user_fixture()}
   end
 
   describe "GET /users/log-in" do
-    test "renders log in page", %{conn: conn} do
+    test "renders login page", %{conn: conn} do
       conn = get(conn, ~p"/users/log-in")
       response = html_response(conn, 200)
       assert response =~ "Log in"
@@ -17,24 +17,22 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert response =~ "Log in with email"
     end
 
-    test "renders log in page with email filled in (sudo mode)", %{
-      conn: conn,
-      confirmed_user: user
-    } do
+    test "renders login page with email filled in (sudo mode)", %{conn: conn, user: user} do
       html =
         conn
         |> log_in_user(user)
         |> get(~p"/users/log-in")
         |> html_response(200)
 
-      assert html =~ "Log in to re-authenticate"
+      assert html =~ "You need to reauthenticate"
       refute html =~ "Register"
       assert html =~ "Log in with email"
 
-      assert html =~ ~s(<input type="hidden" name="user[email]" value="#{user.email}">)
+      assert html =~
+               ~s(<input type="email" name="user[email]" id="login_form_magic_email" value="#{user.email}")
     end
 
-    test "renders log in page (email + password)", %{conn: conn} do
+    test "renders login page (email + password)", %{conn: conn} do
       conn = get(conn, ~p"/users/log-in?mode=password")
       response = html_response(conn, 200)
       assert response =~ "Log in"
@@ -54,7 +52,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert html_response(conn, 200) =~ "Confirm my account"
     end
 
-    test "renders log in page for confirmed user", %{conn: conn, confirmed_user: user} do
+    test "renders login page for confirmed user", %{conn: conn, user: user} do
       token =
         extract_user_token(fn url ->
           Accounts.deliver_login_instructions(user, url)
@@ -70,13 +68,13 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       conn = get(conn, ~p"/users/log-in/invalid-token")
       assert redirected_to(conn) == ~p"/users/log-in"
 
-      assert assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
-                      "Magic link is invalid or it has expired."
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "Magic link is invalid or it has expired."
     end
   end
 
   describe "POST /users/log-in - email and password" do
-    test "logs the user in", %{conn: conn, confirmed_user: user} do
+    test "logs the user in", %{conn: conn, user: user} do
       user = set_password(user)
 
       conn =
@@ -95,7 +93,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert response =~ ~p"/users/log-out"
     end
 
-    test "logs the user in with remember me", %{conn: conn, confirmed_user: user} do
+    test "logs the user in with remember me", %{conn: conn, user: user} do
       user = set_password(user)
 
       conn =
@@ -111,7 +109,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert redirected_to(conn) == ~p"/"
     end
 
-    test "logs the user in with return to", %{conn: conn, confirmed_user: user} do
+    test "logs the user in with return to", %{conn: conn, user: user} do
       user = set_password(user)
 
       conn =
@@ -128,7 +126,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Welcome back!"
     end
 
-    test "emits error message with invalid credentials", %{conn: conn, confirmed_user: user} do
+    test "emits error message with invalid credentials", %{conn: conn, user: user} do
       conn =
         post(conn, ~p"/users/log-in?mode=password", %{
           "user" => %{"email" => user.email, "password" => "invalid_password"}
@@ -141,17 +139,17 @@ defmodule AuthAppWeb.UserSessionControllerTest do
   end
 
   describe "POST /users/log-in - magic link" do
-    test "sends magic link email when user exists", %{conn: conn, confirmed_user: user} do
+    test "sends magic link email when user exists", %{conn: conn, user: user} do
       conn =
         post(conn, ~p"/users/log-in", %{
           "user" => %{"email" => user.email}
         })
 
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "If your email is in our system"
-      assert AuthApp.Repo.get_by!(AuthApp.Accounts.UserToken, user_id: user.id).context == "login"
+      assert AuthApp.Repo.get_by!(Accounts.UserToken, user_id: user.id).context == "login"
     end
 
-    test "logs the user in", %{conn: conn, confirmed_user: user} do
+    test "logs the user in", %{conn: conn, user: user} do
       {token, _hashed_token} = generate_user_magic_link_token(user)
 
       conn =
@@ -182,7 +180,7 @@ defmodule AuthAppWeb.UserSessionControllerTest do
 
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
-      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Account confirmed successfully!"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "User confirmed successfully."
 
       assert Accounts.get_user!(user.id).confirmed_at
 
@@ -194,21 +192,18 @@ defmodule AuthAppWeb.UserSessionControllerTest do
       assert response =~ ~p"/users/log-out"
     end
 
-    test "redirects to login page when magic link is invalid", %{conn: conn} do
+    test "emits error message when magic link is invalid", %{conn: conn} do
       conn =
         post(conn, ~p"/users/log-in", %{
           "user" => %{"token" => "invalid"}
         })
-
-      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
-               "The link is invalid or it has expired."
 
       assert html_response(conn, 200) =~ "The link is invalid or it has expired."
     end
   end
 
   describe "DELETE /users/log-out" do
-    test "logs the user out", %{conn: conn, confirmed_user: user} do
+    test "logs the user out", %{conn: conn, user: user} do
       conn = conn |> log_in_user(user) |> delete(~p"/users/log-out")
       assert redirected_to(conn) == ~p"/"
       refute get_session(conn, :user_token)
