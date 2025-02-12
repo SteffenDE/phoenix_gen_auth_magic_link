@@ -54,6 +54,7 @@ defmodule AuthAppWeb.UserAuthTest do
     test "writes a cookie if remember_me was set in previous session", %{conn: conn, user: user} do
       conn = conn |> fetch_cookies() |> UserAuth.log_in_user(user, %{"remember_me" => "true"})
       assert get_session(conn, :user_token) == conn.cookies[@remember_me_cookie]
+      assert get_session(conn, :user_remember_me) == true
 
       conn =
         conn
@@ -69,6 +70,7 @@ defmodule AuthAppWeb.UserAuthTest do
       assert %{value: signed_token, max_age: max_age} = conn.resp_cookies[@remember_me_cookie]
       assert signed_token != get_session(conn, :user_token)
       assert max_age == 5_184_000
+      assert get_session(conn, :user_remember_me) == true
     end
   end
 
@@ -294,7 +296,7 @@ defmodule AuthAppWeb.UserAuthTest do
         AuthAppWeb.Endpoint.subscribe("users_sessions:#{Base.url_encode64(token)}")
       end
 
-      AuthAppWeb.UserAuth.disconnect_sessions(tokens)
+      UserAuth.disconnect_sessions(tokens)
 
       assert_receive %Phoenix.Socket.Broadcast{
         event: "disconnect",

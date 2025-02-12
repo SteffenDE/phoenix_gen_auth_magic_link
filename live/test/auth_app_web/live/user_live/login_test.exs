@@ -4,10 +4,8 @@ defmodule AuthAppWeb.UserLive.LoginTest do
   import Phoenix.LiveViewTest
   import AuthApp.AccountsFixtures
 
-  alias AuthApp.Repo
-
-  describe "Log in page" do
-    test "renders log in page", %{conn: conn} do
+  describe "login page" do
+    test "renders login page", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
       assert html =~ "Log in"
@@ -29,7 +27,7 @@ defmodule AuthAppWeb.UserLive.LoginTest do
 
       assert html =~ "If your email is in our system"
 
-      assert Repo.get_by!(AuthApp.Accounts.UserToken, user_id: user.id).context == "login"
+      assert AuthApp.Repo.get_by!(AuthApp.Accounts.UserToken, user_id: user.id).context == "login"
     end
 
     test "does not disclose if user is registered", %{conn: conn} do

@@ -49,10 +49,10 @@ defmodule AuthAppWeb.UserSessionController do
   def update_password(conn, %{"user" => user_params} = params) do
     user = conn.assigns.current_user
     true = Accounts.sudo_mode?(user)
-    {:ok, _user, tokens_to_expire} = Accounts.update_user_password(user, user_params)
+    {:ok, _user, expired_tokens} = Accounts.update_user_password(user, user_params)
 
     # disconnect all existing LiveViews with old sessions
-    UserAuth.disconnect_sessions(tokens_to_expire)
+    UserAuth.disconnect_sessions(expired_tokens)
 
     conn
     |> put_session(:user_return_to, ~p"/users/settings")

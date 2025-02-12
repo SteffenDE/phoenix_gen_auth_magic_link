@@ -13,14 +13,14 @@ config :auth_app, AuthApp.Repo,
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
+# Binding to loopback ipv4 address prevents access from other machines.
 config :auth_app, AuthAppWeb.Endpoint,
-  # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "+821oSGIL22Nf5RoHyORVEQsk32KrVH+NJZETKjoasxSjrPaauFJ4hnYOR8eocZN",
+  secret_key_base: "1KrAmj9SpLZW6kppoywMWtVQpZQANTSHpL8xIY6iU05Utv8vYpSOMRVDBc2Jr7XZ",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:auth_app, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:auth_app, ~w(--watch)]}

@@ -25,8 +25,8 @@ defmodule AuthAppWeb.UserAuth do
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
 
-  In case the user re-authenticates for sudo mode, the existing
-  remember_me setting is kept, writing a new remember_me cookie.
+  In case the user re-authenticates for sudo mode,
+  the existing remember_me setting is kept, writing a new remember_me cookie.
   """
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
@@ -218,6 +218,17 @@ defmodule AuthAppWeb.UserAuth do
     |> put_session(:live_socket_id, user_session_topic(token))
   end
 
+  @doc """
+  Disconnects existing sockets for the given tokens.
+  """
+  def disconnect_sessions(tokens) do
+    Enum.each(tokens, fn %{token: token} ->
+      AuthAppWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
+    end)
+  end
+
+  defp user_session_topic(token), do: "users_sessions:#{Base.url_encode64(token)}"
+
   defp maybe_store_return_to(%{method: "GET"} = conn) do
     put_session(conn, :user_return_to, current_path(conn))
   end
@@ -231,15 +242,4 @@ defmodule AuthAppWeb.UserAuth do
   end
 
   def signed_in_path(_), do: ~p"/"
-
-  @doc """
-  Disconnects existing sockets for the given tokens.
-  """
-  def disconnect_sessions(tokens) do
-    Enum.each(tokens, fn %{token: token} ->
-      AuthAppWeb.Endpoint.broadcast(user_session_topic(token), "disconnect", %{})
-    end)
-  end
-
-  defp user_session_topic(token), do: "users_sessions:" <> Base.url_encode64(token)
 end

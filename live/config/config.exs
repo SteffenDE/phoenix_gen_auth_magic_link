@@ -20,7 +20,7 @@ config :auth_app, AuthAppWeb.Endpoint,
     layout: false
   ],
   pubsub_server: AuthApp.PubSub,
-  live_view: [signing_salt: "8+opJxM6"]
+  live_view: [signing_salt: "MtEyEe1Y"]
 
 # Configures the mailer
 #

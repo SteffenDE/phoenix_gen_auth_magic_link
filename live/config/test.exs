@@ -17,7 +17,7 @@ config :auth_app, AuthApp.Repo,
 # you can enable the server option below.
 config :auth_app, AuthAppWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "mn5JN3/85dUcnXNasL4dQUit6L0Jv2YcWHK1g74QjbRsnAoitQG1PDxVcOjGbdcn",
+  secret_key_base: "Mq5v+fudKuvEUGayPZLZ0w6wm2COIdG08A+TH2TvYzSDIHS8rJLw7lImocLxw/42",
   server: false
 
 # In test we don't send emails

@@ -7,7 +7,7 @@ defmodule AuthAppWeb.Endpoint do
   @session_options [
     store: :cookie,
     key: "_auth_app_key",
-    signing_salt: "laRvj80D",
+    signing_salt: "S1y55oKh",
     same_site: "Lax"
   ]
 
