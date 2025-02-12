@@ -34,7 +34,7 @@ defmodule AuthApp.MixProject do
   defp deps do
     [
       {:bcrypt_elixir, "~> 3.0"},
-      {:phoenix, github: "phoenixframework/phoenix", override: true},
+      {:phoenix, github: "phoenixframework/phoenix", ref: "278cd4557df1da2f210099d7d9e9f5210f1c30cf", override: true},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.10"},
       {:ecto_sqlite3, ">= 0.0.0"},

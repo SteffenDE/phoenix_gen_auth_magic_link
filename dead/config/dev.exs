@@ -20,7 +20,7 @@ config :auth_app, AuthAppWeb.Endpoint,
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "X+oT8efeAXZDSeTjZK3WsBqI2Y1pAUC9CG1Ef1rC3aMy1xGBlqhC1ESSRYuHz4QM",
+  secret_key_base: "a2uuvt0MaTB4sMb1U98SYZAzDoBxPghvh9imxYhWE4wmfVY8EgyIUB3k5XmId1Wp",
   watchers: [
     esbuild: {Esbuild, :install_and_run, [:auth_app, ~w(--sourcemap=inline --watch)]},
     tailwind: {Tailwind, :install_and_run, [:auth_app, ~w(--watch)]}

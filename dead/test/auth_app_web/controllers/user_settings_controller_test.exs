@@ -18,6 +18,15 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       conn = get(conn, ~p"/users/settings")
       assert redirected_to(conn) == ~p"/users/log-in"
     end
+
+    @tag token_inserted_at: DateTime.add(DateTime.utc_now(), -11, :minute)
+    test "redirects if user is not in sudo mode", %{conn: conn} do
+      conn = get(conn, ~p"/users/settings")
+      assert redirected_to(conn) == ~p"/users/log-in"
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) ==
+               "You must re-authenticate to access this page."
+    end
   end
 
   describe "PUT /users/settings (change password form)" do
@@ -25,7 +34,6 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       new_password_conn =
         put(conn, ~p"/users/settings", %{
           "action" => "update_password",
-          "current_password" => valid_user_password(),
           "user" => %{
             "password" => "new valid password",
             "password_confirmation" => "new valid password"
@@ -46,7 +54,6 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       old_password_conn =
         put(conn, ~p"/users/settings", %{
           "action" => "update_password",
-          "current_password" => "invalid",
           "user" => %{
             "password" => "too short",
             "password_confirmation" => "does not match"
@@ -57,7 +64,6 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       assert response =~ "Settings"
       assert response =~ "should be at least 12 character(s)"
       assert response =~ "does not match password"
-      assert response =~ "is not valid"
 
       assert get_session(old_password_conn, :user_token) == get_session(conn, :user_token)
     end
@@ -69,7 +75,6 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       conn =
         put(conn, ~p"/users/settings", %{
           "action" => "update_email",
-          "current_password" => valid_user_password(),
           "user" => %{"email" => unique_user_email()}
         })
 
@@ -85,14 +90,12 @@ defmodule AuthAppWeb.UserSettingsControllerTest do
       conn =
         put(conn, ~p"/users/settings", %{
           "action" => "update_email",
-          "current_password" => "invalid",
           "user" => %{"email" => "with spaces"}
         })
 
       response = html_response(conn, 200)
       assert response =~ "Settings"
       assert response =~ "must have the @ sign and no spaces"
-      assert response =~ "is not valid"
     end
   end
 
